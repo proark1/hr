@@ -41,6 +41,9 @@
                     "ok"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "ok": true
                 }
               }
             }
@@ -76,11 +79,24 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/healthz' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          }
+        ]
       }
     },
     "/": {
@@ -116,11 +132,23 @@
                     "docs"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "name": "MyHR API",
+                  "version": "0.0.1",
+                  "docs": "https://api.myhr.example/openapi"
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          }
+        ]
       }
     },
     "/v1/me": {
@@ -167,6 +195,13 @@
                   ],
                   "additionalProperties": false,
                   "description": "The currently authenticated user."
+                },
+                "example": {
+                  "id": "u_01HXYZUSER00000000000000",
+                  "email": "ada@acme.com",
+                  "name": "Ada Lovelace",
+                  "isSuperAdmin": false,
+                  "createdAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -202,6 +237,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -237,6 +278,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -272,11 +319,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/me' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.me.get();"
+          }
+        ]
       }
     },
     "/v1/me/orgs": {
@@ -371,6 +436,22 @@
                     "items"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "org": {
+                        "id": "11111111-2222-3333-4444-555555555555",
+                        "name": "Acme Inc",
+                        "region": "eu",
+                        "status": "active",
+                        "createdAt": "2026-05-04T12:00:00.000Z",
+                        "updatedAt": "2026-05-04T12:00:00.000Z"
+                      },
+                      "role": "admin",
+                      "joinedAt": "2026-05-04T12:00:00.000Z"
+                    }
+                  ]
                 }
               }
             }
@@ -406,6 +487,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -441,6 +528,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -476,11 +569,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/me/orgs' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.me.listMyOrgs();"
+          }
+        ]
       }
     },
     "/v1/orgs": {
@@ -509,7 +620,8 @@
             },
             "in": "query",
             "name": "limit",
-            "required": false
+            "required": false,
+            "example": 50
           },
           {
             "schema": {
@@ -586,6 +698,19 @@
                     "nextCursor"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "11111111-2222-3333-4444-555555555555",
+                      "name": "Acme Inc",
+                      "region": "eu",
+                      "status": "active",
+                      "createdAt": "2026-05-04T12:00:00.000Z",
+                      "updatedAt": "2026-05-04T12:00:00.000Z"
+                    }
+                  ],
+                  "nextCursor": null
                 }
               }
             }
@@ -621,6 +746,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -656,6 +787,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -691,6 +828,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -726,11 +869,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/orgs?limit=50' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.list({ limit: 50 });"
+          }
+        ]
       },
       "post": {
         "operationId": "createOrg",
@@ -764,6 +925,10 @@
                   "name"
                 ],
                 "additionalProperties": false
+              },
+              "example": {
+                "name": "Acme Inc",
+                "region": "eu"
               }
             }
           }
@@ -858,6 +1023,14 @@
                     "updatedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "11111111-2222-3333-4444-555555555555",
+                  "name": "Acme Inc",
+                  "region": "eu",
+                  "status": "active",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -893,6 +1066,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -928,6 +1107,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -963,6 +1148,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -998,6 +1189,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
                 }
               }
             }
@@ -1033,11 +1230,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X POST 'https://api.myhr.example/v1/orgs' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Acme Inc\",\"region\":\"eu\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.create({\n  \"name\": \"Acme Inc\",\n  \"region\": \"eu\"\n});"
+          }
+        ]
       }
     },
     "/v1/orgs/{id}": {
@@ -1056,7 +1271,8 @@
             },
             "in": "path",
             "name": "id",
-            "required": true
+            "required": true,
+            "example": "11111111-2222-3333-4444-555555555555"
           },
           {
             "schema": {
@@ -1116,6 +1332,14 @@
                     "updatedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "11111111-2222-3333-4444-555555555555",
+                  "name": "Acme Inc",
+                  "region": "eu",
+                  "status": "active",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -1151,6 +1375,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -1186,6 +1416,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -1221,6 +1457,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -1256,6 +1498,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
                 }
               }
             }
@@ -1291,11 +1539,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/orgs/11111111-2222-3333-4444-555555555555' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.get(\"11111111-2222-3333-4444-555555555555\");"
+          }
+        ]
       },
       "patch": {
         "operationId": "updateOrg",
@@ -1334,6 +1600,9 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "example": {
+                "name": "Acme Holdings GmbH"
               }
             }
           }
@@ -1346,7 +1615,8 @@
             },
             "in": "path",
             "name": "id",
-            "required": true
+            "required": true,
+            "example": "11111111-2222-3333-4444-555555555555"
           },
           {
             "schema": {
@@ -1417,6 +1687,14 @@
                     "updatedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "11111111-2222-3333-4444-555555555555",
+                  "name": "Acme Holdings GmbH",
+                  "region": "eu",
+                  "status": "active",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -1452,6 +1730,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -1487,6 +1771,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -1522,6 +1812,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -1557,6 +1853,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
                 }
               }
             }
@@ -1592,6 +1894,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
                 }
               }
             }
@@ -1627,11 +1935,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X PATCH 'https://api.myhr.example/v1/orgs/11111111-2222-3333-4444-555555555555' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Acme Holdings GmbH\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.update(\"11111111-2222-3333-4444-555555555555\", {\n  \"name\": \"Acme Holdings GmbH\"\n});"
+          }
+        ]
       }
     },
     "/v1/members": {
@@ -1731,6 +2057,18 @@
                     "items"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "membershipId": "cccccccc-dddd-eeee-ffff-aaaaaaaaaaaa",
+                      "userId": "u_01HXYZUSER00000000000000",
+                      "email": "ada@acme.com",
+                      "name": "Ada Lovelace",
+                      "role": "admin",
+                      "joinedAt": "2026-05-04T12:00:00.000Z"
+                    }
+                  ]
                 }
               }
             }
@@ -1766,6 +2104,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -1801,6 +2145,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -1836,6 +2186,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -1871,11 +2227,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/members' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.members.list();"
+          }
+        ]
       }
     },
     "/v1/invitations": {
@@ -1912,6 +2286,10 @@
                   "role"
                 ],
                 "additionalProperties": false
+              },
+              "example": {
+                "email": "newhire@acme.com",
+                "role": "admin"
               }
             }
           }
@@ -2016,6 +2394,16 @@
                     "token"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "00000000-1111-2222-3333-444444444444",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "email": "newhire@acme.com",
+                  "role": "admin",
+                  "expiresAt": "2026-05-11T12:00:00.000Z",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "acceptUrl": "https://app.myhr.example/invitations/accept?token=inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d",
+                  "token": "inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d"
                 }
               }
             }
@@ -2051,6 +2439,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -2086,6 +2480,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -2121,6 +2521,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -2156,6 +2562,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
                 }
               }
             }
@@ -2191,11 +2603,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X POST 'https://api.myhr.example/v1/invitations' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"newhire@acme.com\",\"role\":\"admin\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.create({\n  \"email\": \"newhire@acme.com\",\n  \"role\": \"admin\"\n});"
+          }
+        ]
       },
       "get": {
         "operationId": "listInvitations",
@@ -2294,6 +2724,18 @@
                     "items"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "00000000-1111-2222-3333-444444444444",
+                      "orgId": "11111111-2222-3333-4444-555555555555",
+                      "email": "newhire@acme.com",
+                      "role": "admin",
+                      "expiresAt": "2026-05-11T12:00:00.000Z",
+                      "createdAt": "2026-05-04T12:00:00.000Z"
+                    }
+                  ]
                 }
               }
             }
@@ -2329,6 +2771,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -2364,6 +2812,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -2399,6 +2853,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -2434,11 +2894,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/invitations' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.list();"
+          }
+        ]
       }
     },
     "/v1/invitations/accept": {
@@ -2465,6 +2943,9 @@
                   "token"
                 ],
                 "additionalProperties": false
+              },
+              "example": {
+                "token": "inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d"
               }
             }
           }
@@ -2523,6 +3004,13 @@
                     "createdAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "cccccccc-dddd-eeee-ffff-aaaaaaaaaaaa",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "userId": "u_01HXYZUSER00000000000000",
+                  "role": "admin",
+                  "createdAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -2558,6 +3046,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -2593,6 +3087,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -2628,6 +3128,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -2663,6 +3169,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
                 }
               }
             }
@@ -2698,6 +3210,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
                 }
               }
             }
@@ -2733,11 +3251,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X POST 'https://api.myhr.example/v1/invitations/accept' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"token\":\"inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.accept(\"inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d\");"
+          }
+        ]
       }
     },
     "/v1/api-keys": {
@@ -2765,6 +3301,9 @@
                   "name"
                 ],
                 "additionalProperties": false
+              },
+              "example": {
+                "name": "Production server (read+write)"
               }
             }
           }
@@ -2861,6 +3400,15 @@
                     "key"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+                  "name": "Production server (read+write)",
+                  "prefix": "mh_live_4f3c",
+                  "scope": "tenant",
+                  "lastUsedAt": null,
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "key": "mh_live_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d"
                 }
               }
             }
@@ -2896,6 +3444,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -2931,6 +3485,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -2966,6 +3526,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -3001,11 +3567,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X POST 'https://api.myhr.example/v1/api-keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Production server (read+write)\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.apiKeys.create({\n  \"name\": \"Production server (read+write)\"\n});"
+          }
+        ]
       },
       "get": {
         "operationId": "listApiKeys",
@@ -3102,6 +3686,18 @@
                     "items"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+                      "name": "Production server (read+write)",
+                      "prefix": "mh_live_4f3c",
+                      "scope": "tenant",
+                      "lastUsedAt": "2026-05-04T12:00:00.000Z",
+                      "createdAt": "2026-05-04T12:00:00.000Z"
+                    }
+                  ]
                 }
               }
             }
@@ -3137,6 +3733,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -3172,6 +3774,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -3207,6 +3815,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -3242,11 +3856,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/api-keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.apiKeys.list();"
+          }
+        ]
       }
     },
     "/v1/employees": {
@@ -3270,7 +3902,8 @@
             },
             "in": "query",
             "name": "status",
-            "required": false
+            "required": false,
+            "example": "active"
           },
           {
             "schema": {
@@ -3310,7 +3943,8 @@
             },
             "in": "query",
             "name": "limit",
-            "required": false
+            "required": false,
+            "example": 50
           },
           {
             "schema": {
@@ -3449,6 +4083,29 @@
                     "nextCursor"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                      "orgId": "11111111-2222-3333-4444-555555555555",
+                      "externalId": "emp_4271",
+                      "email": "ada@acme.com",
+                      "firstName": "Ada",
+                      "lastName": "Lovelace",
+                      "preferredName": null,
+                      "jobTitle": "Staff Engineer",
+                      "department": "Engineering",
+                      "managerId": null,
+                      "country": "us",
+                      "startDate": "2026-06-01",
+                      "endDate": null,
+                      "status": "active",
+                      "createdAt": "2026-05-04T12:00:00.000Z",
+                      "updatedAt": "2026-05-04T12:00:00.000Z"
+                    }
+                  ],
+                  "nextCursor": null
                 }
               }
             }
@@ -3484,6 +4141,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -3519,6 +4182,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -3554,6 +4223,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -3589,11 +4264,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/employees?limit=50&status=active' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.list({ status: \"active\", limit: 50 });"
+          }
+        ]
       },
       "post": {
         "operationId": "createEmployee",
@@ -3678,6 +4371,15 @@
                   "startDate"
                 ],
                 "additionalProperties": false
+              },
+              "example": {
+                "email": "ada@acme.com",
+                "firstName": "Ada",
+                "lastName": "Lovelace",
+                "country": "us",
+                "startDate": "2026-06-01",
+                "jobTitle": "Staff Engineer",
+                "department": "Engineering"
               }
             }
           }
@@ -3814,6 +4516,24 @@
                     "updatedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "externalId": "emp_4271",
+                  "email": "ada@acme.com",
+                  "firstName": "Ada",
+                  "lastName": "Lovelace",
+                  "preferredName": null,
+                  "jobTitle": "Staff Engineer",
+                  "department": "Engineering",
+                  "managerId": null,
+                  "country": "us",
+                  "startDate": "2026-06-01",
+                  "endDate": null,
+                  "status": "onboarding",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -3849,6 +4569,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -3884,6 +4610,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -3919,6 +4651,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -3954,6 +4692,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
                 }
               }
             }
@@ -3989,11 +4733,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X POST 'https://api.myhr.example/v1/employees' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\",\"jobTitle\":\"Staff Engineer\",\"department\":\"Engineering\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.create({\n  \"email\": \"ada@acme.com\",\n  \"firstName\": \"Ada\",\n  \"lastName\": \"Lovelace\",\n  \"country\": \"us\",\n  \"startDate\": \"2026-06-01\",\n  \"jobTitle\": \"Staff Engineer\",\n  \"department\": \"Engineering\"\n});"
+          }
+        ]
       }
     },
     "/v1/employees/{id}": {
@@ -4012,7 +4774,8 @@
             },
             "in": "path",
             "name": "id",
-            "required": true
+            "required": true,
+            "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
           },
           {
             "schema": {
@@ -4134,6 +4897,24 @@
                     "updatedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "externalId": "emp_4271",
+                  "email": "ada@acme.com",
+                  "firstName": "Ada",
+                  "lastName": "Lovelace",
+                  "preferredName": null,
+                  "jobTitle": "Staff Engineer",
+                  "department": "Engineering",
+                  "managerId": null,
+                  "country": "us",
+                  "startDate": "2026-06-01",
+                  "endDate": null,
+                  "status": "onboarding",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -4169,6 +4950,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -4204,6 +4991,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -4239,6 +5032,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -4274,6 +5073,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
                 }
               }
             }
@@ -4309,11 +5114,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.get(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
+          }
+        ]
       },
       "patch": {
         "operationId": "updateEmployee",
@@ -4391,6 +5214,10 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "example": {
+                "jobTitle": "Principal Engineer",
+                "status": "active"
               }
             }
           }
@@ -4403,7 +5230,8 @@
             },
             "in": "path",
             "name": "id",
-            "required": true
+            "required": true,
+            "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
           },
           {
             "schema": {
@@ -4536,6 +5364,24 @@
                     "updatedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "externalId": "emp_4271",
+                  "email": "ada@acme.com",
+                  "firstName": "Ada",
+                  "lastName": "Lovelace",
+                  "preferredName": null,
+                  "jobTitle": "Principal Engineer",
+                  "department": "Engineering",
+                  "managerId": null,
+                  "country": "us",
+                  "startDate": "2026-06-01",
+                  "endDate": null,
+                  "status": "active",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -4571,6 +5417,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -4606,6 +5458,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -4641,6 +5499,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -4676,6 +5540,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
                 }
               }
             }
@@ -4711,6 +5581,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
                 }
               }
             }
@@ -4746,11 +5622,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X PATCH 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"jobTitle\":\"Principal Engineer\",\"status\":\"active\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.update(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\", {\n  \"jobTitle\": \"Principal Engineer\",\n  \"status\": \"active\"\n});"
+          }
+        ]
       },
       "delete": {
         "operationId": "deleteEmployee",
@@ -4767,7 +5661,8 @@
             },
             "in": "path",
             "name": "id",
-            "required": true
+            "required": true,
+            "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
           },
           {
             "schema": {
@@ -4822,6 +5717,10 @@
                     "deletedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                  "deletedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -4857,6 +5756,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -4892,6 +5797,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -4927,6 +5838,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -4962,6 +5879,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
                 }
               }
             }
@@ -4997,6 +5920,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
                 }
               }
             }
@@ -5032,11 +5961,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X DELETE 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.delete(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
+          }
+        ]
       }
     },
     "/v1/employees/{id}/export": {
@@ -5055,7 +6002,8 @@
             },
             "in": "path",
             "name": "id",
-            "required": true
+            "required": true,
+            "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
           },
           {
             "schema": {
@@ -5191,6 +6139,27 @@
                     "exportedAt"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "employee": {
+                    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "orgId": "11111111-2222-3333-4444-555555555555",
+                    "externalId": "emp_4271",
+                    "email": "ada@acme.com",
+                    "firstName": "Ada",
+                    "lastName": "Lovelace",
+                    "preferredName": null,
+                    "jobTitle": "Staff Engineer",
+                    "department": "Engineering",
+                    "managerId": null,
+                    "country": "us",
+                    "startDate": "2026-06-01",
+                    "endDate": null,
+                    "status": "onboarding",
+                    "createdAt": "2026-05-04T12:00:00.000Z",
+                    "updatedAt": "2026-05-04T12:00:00.000Z"
+                  },
+                  "exportedAt": "2026-05-04T12:00:00.000Z"
                 }
               }
             }
@@ -5226,6 +6195,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
                 }
               }
             }
@@ -5261,6 +6236,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -5296,6 +6277,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -5331,6 +6318,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
                 }
               }
             }
@@ -5366,11 +6359,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/export' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.exportData(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
+          }
+        ]
       }
     },
     "/v1/superadmin/orgs": {
@@ -5399,7 +6410,8 @@
             },
             "in": "query",
             "name": "limit",
-            "required": false
+            "required": false,
+            "example": 50
           }
         ],
         "responses": {
@@ -5467,6 +6479,19 @@
                     "nextCursor"
                   ],
                   "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "11111111-2222-3333-4444-555555555555",
+                      "name": "Acme Inc",
+                      "region": "eu",
+                      "status": "active",
+                      "createdAt": "2026-05-04T12:00:00.000Z",
+                      "updatedAt": "2026-05-04T12:00:00.000Z"
+                    }
+                  ],
+                  "nextCursor": null
                 }
               }
             }
@@ -5502,6 +6527,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
                 }
               }
             }
@@ -5537,6 +6568,12 @@
                   ],
                   "additionalProperties": false,
                   "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
                 }
               }
             }
@@ -5572,11 +6609,29 @@
                   ],
                   "additionalProperties": false,
                   "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.myhr.example/v1/superadmin/orgs?limit=50' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.superadmin.listOrgs({ limit: 50 });"
+          }
+        ]
       }
     }
   },
@@ -5623,6 +6678,31 @@
     {
       "name": "Health",
       "description": "Liveness and service metadata."
+    }
+  ],
+  "x-tagGroups": [
+    {
+      "name": "Public API",
+      "tags": [
+        "Employees",
+        "Orgs",
+        "Members",
+        "Invitations"
+      ]
+    },
+    {
+      "name": "Admin",
+      "tags": [
+        "ApiKeys",
+        "Me"
+      ]
+    },
+    {
+      "name": "Internal",
+      "tags": [
+        "SuperAdmin",
+        "Health"
+      ]
     }
   ]
 }

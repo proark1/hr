@@ -48,6 +48,9 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
+      '@myhr/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@redocly/cli':
         specifier: ^1.34.14
         version: 1.34.14(ajv@8.20.0)

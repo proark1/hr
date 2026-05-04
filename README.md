@@ -105,6 +105,33 @@ curl -X POST http://localhost:8080/v1/employees \
   -d '{"email":"alex@acme.com","firstName":"Alex","lastName":"Doe","country":"de","startDate":"2026-06-01"}'
 ```
 
+## API docs
+
+- **Live Swagger UI**: every API instance serves an interactive doc UI at
+  `/openapi`. Locally that's <http://localhost:8080/openapi>.
+- **OpenAPI spec**: served as JSON at `/openapi/json`, and committed to the
+  repo at [`apps/api/openapi.json`](apps/api/openapi.json) as a snapshot. CI
+  fails if the spec drifts from the routes.
+- **Static Redoc site**: `pnpm --filter @myhr/api openapi:docs` writes a
+  standalone HTML at `apps/api/dist-docs/index.html`. Each CI run uploads it
+  as the `api-docs` artifact.
+- **Per-operation examples**: every operation in the spec ships with a curl
+  invocation and an `@myhr/sdk` snippet (`x-codeSamples`), plus realistic
+  request/response/error examples. Paste-and-go.
+- **Typed SDK**: [`@myhr/sdk`](packages/sdk) exposes a method per
+  operationId. CI runs `openapi:sdk-coverage` to fail the build if the SDK
+  drifts from the spec.
+
+```bash
+# Local dev: open the interactive UI
+pnpm api:dev
+open http://localhost:8080/openapi
+
+# Build a shareable static doc site
+pnpm --filter @myhr/api openapi:docs
+open apps/api/dist-docs/index.html
+```
+
 ## Deployment
 
 - **Railway** (EU region) hosts the API + Postgres. The API service runs the

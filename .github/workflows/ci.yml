@@ -27,3 +27,13 @@ jobs:
         run: pnpm --filter @myhr/api openapi:check
       - name: Lint OpenAPI spec
         run: pnpm --filter @myhr/api openapi:lint
+      - name: Verify SDK covers every spec operation
+        run: pnpm --filter @myhr/api openapi:sdk-coverage
+      - name: Build static API docs
+        run: pnpm --filter @myhr/api openapi:docs
+      - name: Upload API docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-docs
+          path: apps/api/dist-docs/
+          if-no-files-found: error
