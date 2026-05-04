@@ -1,0 +1,22 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# env
+.env
+.env.local
+.env.*.local
+
+# prisma
+*.db
+*.db-journal
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea

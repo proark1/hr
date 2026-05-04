@@ -1,0 +1,23 @@
+{
+  "name": "myhr",
+  "private": true,
+  "version": "0.0.1",
+  "description": "MyHR — API-first HR service for 1tap.ai",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "db:generate": "pnpm --filter @myhr/db generate",
+    "db:migrate": "pnpm --filter @myhr/db migrate",
+    "db:migrate:deploy": "pnpm --filter @myhr/db migrate:deploy",
+    "api:dev": "pnpm --filter @myhr/api dev",
+    "mcp:dev": "pnpm --filter @myhr/mcp dev"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3"
+  }
+}
