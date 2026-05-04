@@ -11,6 +11,7 @@ import {
 import { withTenant } from "@myhr/db";
 import { env } from "../env.js";
 import { Errors } from "../errors.js";
+import { sendInvitationEmail } from "../lib/email.js";
 import {
   errorResponses,
   orgReadHeaders,
@@ -72,11 +73,11 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
 
       const isMaster = caller.type === "master";
       const userId = caller.type === "user" ? caller.userId : null;
-      const inv = await withTenant(
+      const result = await withTenant(
         app.prisma,
         { orgId: req.tenantId!, isMaster, userId },
-        (tx) =>
-          tx.invitation.create({
+        async (tx) => {
+          const inv = await tx.invitation.create({
             data: {
               orgId: req.tenantId!,
               email: req.body.email,
@@ -85,7 +86,18 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
               invitedByUserId: invitedBy,
               expiresAt,
             },
-          }),
+          });
+          // Pull names alongside in the same tx so we can compose a useful email.
+          const org = await tx.org.findUnique({
+            where: { id: req.tenantId! },
+            select: { name: true },
+          });
+          const inviter = await tx.user.findUnique({
+            where: { id: invitedBy },
+            select: { name: true, email: true },
+          });
+          return { inv, orgName: org?.name ?? "your org", inviter };
+        },
       ).catch((err: unknown) => {
         if (
           typeof err === "object" &&
@@ -98,6 +110,25 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
         throw err;
       });
 
+      const { inv, orgName, inviter } = result;
+      const acceptUrl = buildAcceptUrl(token);
+
+      // Fire-and-forget the email but await so we can log failures. Failure
+      // does NOT bubble up — the invitation row exists and the response
+      // already contains acceptUrl, so the caller can resend out-of-band.
+      await sendInvitationEmail(
+        {
+          to: inv.email,
+          orgName,
+          inviterName: inviter?.name ?? null,
+          inviterEmail: inviter?.email ?? "",
+          role: inv.role,
+          acceptUrl,
+          expiresAt: inv.expiresAt,
+        },
+        req.log,
+      );
+
       req.auditAction = "invitation.created";
       req.auditResource = `invitation:${inv.id}`;
       reply.code(201);
@@ -109,7 +140,7 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
         expiresAt: inv.expiresAt.toISOString(),
         createdAt: inv.createdAt.toISOString(),
         token,
-        acceptUrl: buildAcceptUrl(token),
+        acceptUrl,
       };
     },
   );
