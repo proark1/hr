@@ -32,19 +32,34 @@ enum OrgStatus {
   deleted
 }
 
+enum BillingMode {
+  invoice
+  subscription
+  partner
+}
+
 model Org {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
-  region    OrgRegion  @default(eu)
-  status    OrgStatus  @default(active)
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
-  deletedAt DateTime?  @map("deleted_at")
+  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  region               OrgRegion   @default(eu)
+  status               OrgStatus   @default(active)
+  // Reserved for the Stripe self-serve PR. 1tap-provisioned orgs get
+  // billing_mode='partner' (no per-seat metering); UI signups default to
+  // 'subscription'. 'invoice' is for old-school manual invoicing.
+  billingMode          BillingMode @default(subscription) @map("billing_mode")
+  stripeCustomerId     String?     @map("stripe_customer_id")
+  stripeSubscriptionId String?     @map("stripe_subscription_id")
+  plan                 String?
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+  deletedAt            DateTime?   @map("deleted_at")
 
   employees   Employee[]
   apiKeys     ApiKey[]
   auditEvents AuditEvent[]
   webhooks    WebhookEndpoint[]
+  memberships OrgMembership[]
+  invitations Invitation[]
 
   @@map("orgs")
 }
@@ -178,4 +193,129 @@ model WebhookEndpoint {
 
   @@index([orgId])
   @@map("webhook_endpoints")
+}
+
+// -- Better Auth -------------------------------------------------------------
+//
+// User / Session / Account / Verification are owned and managed by Better
+// Auth's prisma adapter. The Prisma model names are the names Better Auth
+// expects; @@map keeps the SQL plural-snake-case to match our convention.
+// These tables are NOT under RLS — Better Auth queries them directly without
+// our session vars, and they only contain auth-system data (no HR PII).
+
+model User {
+  id            String   @id // Better Auth assigns text ids
+  name          String?
+  email         String   @unique @db.Citext
+  emailVerified Boolean  @default(false) @map("email_verified")
+  image         String?
+  isSuperAdmin  Boolean  @default(false) @map("is_super_admin")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sessions    Session[]
+  accounts    Account[]
+  memberships OrgMembership[]
+  invitations Invitation[]   @relation("InvitedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  userId    String   @map("user_id")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")   // provider's user id
+  providerId            String    @map("provider_id")  // "credential" | "google" | ...
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?   // bcrypt hash for email/password provider
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String   // email being verified, or password reset key, ...
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verifications")
+}
+
+// -- Memberships + invitations ----------------------------------------------
+
+enum MembershipRole {
+  owner
+  admin
+  manager
+  member
+}
+
+model OrgMembership {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId     String         @map("org_id") @db.Uuid
+  userId    String         @map("user_id")
+  role      MembershipRole
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  deletedAt DateTime?      @map("deleted_at")
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@index([orgId, role])
+  @@map("org_memberships")
+}
+
+model Invitation {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId           String         @map("org_id") @db.Uuid
+  email           String         @db.Citext
+  role            MembershipRole
+  tokenHash       String         @map("token_hash")
+  invitedByUserId String         @map("invited_by_user_id")
+  expiresAt       DateTime       @map("expires_at")
+  acceptedAt      DateTime?      @map("accepted_at")
+  revokedAt       DateTime?      @map("revoked_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("InvitedBy", fields: [invitedByUserId], references: [id])
+
+  @@index([orgId])
+  @@index([email])
+  @@map("invitations")
 }
