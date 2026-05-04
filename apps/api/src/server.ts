@@ -70,7 +70,12 @@ export async function buildServer() {
           "API-first HR service for 1tap.ai. One master integrator provisions and operates many startup tenants.",
         version: "0.0.1",
       },
-      servers: [{ url: "https://api.myhr.example", description: "production" }],
+      servers: [
+        {
+          url: env.PUBLIC_API_URL ?? `http://localhost:${env.PORT}`,
+          description: env.PUBLIC_API_URL ? env.NODE_ENV : "local",
+        },
+      ],
       tags: [
         { name: "Employees", description: "Employee records scoped to a tenant org." },
         { name: "Orgs", description: "Tenant orgs. Master-only endpoints used by 1tap to provision startups." },
@@ -91,7 +96,7 @@ export async function buildServer() {
   });
 
   await app.register(swaggerUi, {
-    routePrefix: "/docs",
+    routePrefix: "/openapi",
     uiConfig: { docExpansion: "list", deepLinking: true },
   });
 

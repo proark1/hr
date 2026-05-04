@@ -6,6 +6,7 @@ const Env = z.object({
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   DATABASE_URL: z.string().min(1),
   DIRECT_DATABASE_URL: z.string().min(1).optional(),
+  PUBLIC_API_URL: z.string().url().optional(),
   MASTER_API_KEY: z.string().min(16),
   FIELD_ENCRYPTION_KEY: z.string().optional(),
   WEBHOOK_SIGNING_SECRET: z.string().optional(),
