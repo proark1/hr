@@ -2,6 +2,7 @@ import fp from "fastify-plugin";
 import crypto from "node:crypto";
 import { env } from "../env.js";
 import { Errors } from "../errors.js";
+import { reqPath } from "../lib/path.js";
 
 export type Caller =
   | { type: "master"; keyId: string | null }
@@ -48,7 +49,8 @@ export default fp(async (app) => {
 
   app.addHook("onRequest", async (req) => {
     // Health endpoint stays public
-    if (req.url === "/healthz" || req.url === "/" || req.url.startsWith("/openapi")) return;
+    const path = reqPath(req.url);
+    if (path === "/healthz" || path === "/" || path.startsWith("/openapi")) return;
 
     const auth = req.headers.authorization;
     if (!auth || !auth.toLowerCase().startsWith("bearer ")) {

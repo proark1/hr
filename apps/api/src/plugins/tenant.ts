@@ -1,5 +1,6 @@
 import fp from "fastify-plugin";
 import { Errors } from "../errors.js";
+import { reqPath } from "../lib/path.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -18,7 +19,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export default fp(async (app) => {
   app.addHook("preHandler", async (req) => {
-    if (req.url === "/healthz" || req.url === "/" || req.url.startsWith("/openapi")) return;
+    const path = reqPath(req.url);
+    if (path === "/healthz" || path === "/" || path.startsWith("/openapi")) return;
 
     const cfg = req.routeOptions?.config ?? {};
     const tenantHeader = req.headers["x-tenant-id"];

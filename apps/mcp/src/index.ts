@@ -12,6 +12,7 @@
  * Transport: stdio (the standard MCP transport). HTTP transport can be added
  * later if 1tap wants to expose it as a hosted endpoint.
  */
+import crypto from "node:crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -19,6 +20,8 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+
+const WRITE_METHODS = new Set(["POST", "PATCH", "DELETE"]);
 
 const Config = z.object({
   MYHR_API_URL: z.string().url().default("http://localhost:8080"),
@@ -43,6 +46,12 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
       email: cfg.MYHR_ACTOR_EMAIL,
       name: cfg.MYHR_ACTOR_NAME,
     });
+  }
+  if (WRITE_METHODS.has(method)) {
+    // One key per logical tool call. If the agent retries the same fetch
+    // (e.g. transient network error), reuse via Promise-level retry; we don't
+    // retry inside this helper, so a fresh key per call is correct.
+    headers["Idempotency-Key"] = crypto.randomUUID();
   }
   const init: RequestInit = { method, headers };
   if (body !== undefined) init.body = JSON.stringify(body);

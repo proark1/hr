@@ -34,7 +34,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
       const { cursor, limit, status, managerId, country } = req.query;
       const items = await withTenant(
         app.prisma,
-        { orgId: req.tenantId!, isMaster: true },
+        { orgId: req.tenantId!, isMaster: false },
         (tx) =>
           tx.employee.findMany({
             where: {
@@ -72,7 +72,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       const created = await withTenant(
         app.prisma,
-        { orgId: req.tenantId!, isMaster: true },
+        { orgId: req.tenantId!, isMaster: false },
         (tx) =>
           tx.employee.create({
             data: {
@@ -122,7 +122,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const e = await withTenant(
         app.prisma,
-        { orgId: req.tenantId!, isMaster: true },
+        { orgId: req.tenantId!, isMaster: false },
         (tx) =>
           tx.employee.findFirst({
             where: { id: req.params.id, orgId: req.tenantId!, deletedAt: null },
@@ -163,7 +163,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
 
       const updated = await withTenant(
         app.prisma,
-        { orgId: req.tenantId!, isMaster: true },
+        { orgId: req.tenantId!, isMaster: false },
         async (tx) => {
           const existing = await tx.employee.findFirst({
             where: { id: req.params.id, orgId: req.tenantId!, deletedAt: null },
@@ -199,7 +199,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const out = await withTenant(
         app.prisma,
-        { orgId: req.tenantId!, isMaster: true },
+        { orgId: req.tenantId!, isMaster: false },
         async (tx) => {
           const existing = await tx.employee.findFirst({
             where: { id: req.params.id, orgId: req.tenantId!, deletedAt: null },
@@ -238,7 +238,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const e = await withTenant(
         app.prisma,
-        { orgId: req.tenantId!, isMaster: true },
+        { orgId: req.tenantId!, isMaster: false },
         (tx) =>
           tx.employee.findFirst({
             where: { id: req.params.id, orgId: req.tenantId! },
