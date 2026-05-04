@@ -20,6 +20,11 @@ import auditPlugin from "./plugins/audit.js";
 import healthRoutes from "./routes/health.js";
 import orgRoutes from "./routes/orgs.js";
 import employeeRoutes from "./routes/employees.js";
+import meRoutes from "./routes/me.js";
+import memberRoutes from "./routes/members.js";
+import invitationRoutes, { invitationAcceptRoutes } from "./routes/invitations.js";
+import apiKeyRoutes from "./routes/api-keys.js";
+import superAdminRoutes from "./routes/superadmin.js";
 
 export async function buildServer() {
   const loggerOpts: Record<string, unknown> = {
@@ -110,8 +115,13 @@ export async function buildServer() {
         },
       ],
       tags: [
+        { name: "Me", description: "The currently authenticated end user." },
+        { name: "Orgs", description: "Tenant orgs. Master + end-user creation; master read." },
+        { name: "Members", description: "Per-org memberships and roles." },
+        { name: "Invitations", description: "Invite-by-email flow for adding members." },
+        { name: "ApiKeys", description: "Tenant-scoped API keys minted from the dashboard." },
         { name: "Employees", description: "Employee records scoped to a tenant org." },
-        { name: "Orgs", description: "Tenant orgs. Master-only endpoints used by 1tap to provision startups." },
+        { name: "SuperAdmin", description: "Cross-tenant ops for MyHR staff (`is_super_admin` users)." },
         { name: "Health", description: "Liveness and service metadata." },
       ],
       components: {
@@ -140,8 +150,14 @@ export async function buildServer() {
   await app.register(auditPlugin);
 
   await app.register(healthRoutes);
+  await app.register(meRoutes, { prefix: "/v1/me" });
   await app.register(orgRoutes, { prefix: "/v1/orgs" });
+  await app.register(memberRoutes, { prefix: "/v1/members" });
+  await app.register(invitationRoutes, { prefix: "/v1/invitations" });
+  await app.register(invitationAcceptRoutes, { prefix: "/v1/invitations" });
+  await app.register(apiKeyRoutes, { prefix: "/v1/api-keys" });
   await app.register(employeeRoutes, { prefix: "/v1/employees" });
+  await app.register(superAdminRoutes, { prefix: "/v1/superadmin" });
 
   return app;
 }
