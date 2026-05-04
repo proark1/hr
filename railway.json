@@ -5,7 +5,8 @@
     "dockerfilePath": "apps/api/Dockerfile"
   },
   "deploy": {
-    "startCommand": "pnpm --filter @myhr/db migrate:deploy && node apps/api/dist/index.js",
+    "preDeployCommand": "pnpm --filter @myhr/db migrate:deploy",
+    "startCommand": "node apps/api/dist/index.js",
     "healthcheckPath": "/healthz",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
