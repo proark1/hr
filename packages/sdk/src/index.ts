@@ -1,5 +1,10 @@
 export { createClient, type CallerContext, type ClientConfig, type MyHRClient } from "./client.js";
 export { MyHRError, type ApiErrorBody } from "./errors.js";
+export {
+  verifyWebhookSignature,
+  WEBHOOK_SIGNATURE_HEADER,
+  WEBHOOK_REPLAY_WINDOW_SEC,
+} from "./webhooks.js";
 
 // Re-export the wire types so consumers don't need to depend on @myhr/types
 // directly. They're zod schemas there; here we surface only the inferred TS
@@ -29,5 +34,13 @@ export type {
   EmployeeCreate,
   EmployeeUpdate,
   EmployeeListQuery,
+  WebhookEndpoint,
+  WebhookEndpointCreate,
+  WebhookEndpointUpdate,
+  WebhookEndpointWithSecret,
+  WebhookDelivery,
+  WebhookDeliveryListQuery,
+  WebhookDeliveryStatus,
+  WebhookEventType,
   ErrorResponse,
 } from "@myhr/types";

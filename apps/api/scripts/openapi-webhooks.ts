@@ -1,11 +1,11 @@
 /**
  * Webhook event specs added to the spec under `x-webhooks` (Redoc renders
- * this alongside paths). The 1tap integrator implements these handlers; the
- * shape is the contract.
+ * this alongside paths). Consumers implement these handlers; the shape is
+ * the contract.
  *
- * MVP: forward-looking. Delivery, signing, and retries land in a follow-up.
- * The schema lives here (not in @myhr/types) until we actually fire events,
- * to avoid leaking forward-looking types into the SDK.
+ * Delivery is live: pg-boss-backed retry queue with HMAC-SHA256 signing.
+ * See `apps/api/src/lib/webhook/worker.ts`. The `document.expiring` event
+ * type is declared but not yet emitted (documents land in a later PR).
  */
 
 type Json = Record<string, unknown>;

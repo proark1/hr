@@ -82,6 +82,27 @@ const SDK_CALLS: Record<string, (args: { fixture: OperationFixture }) => string>
   // Superadmin
   superadminListOrgs: () =>
     `await myhr.superadmin.listOrgs({ limit: 50 });`,
+
+  // Webhook endpoints
+  createWebhookEndpoint: ({ fixture }) =>
+    `await myhr.webhookEndpoints.create(${j(fixture.body)});`,
+  listWebhookEndpoints: () => `await myhr.webhookEndpoints.list();`,
+  getWebhookEndpoint: () =>
+    `await myhr.webhookEndpoints.get("${SAMPLES.webhookEndpointId}");`,
+  updateWebhookEndpoint: ({ fixture }) =>
+    `await myhr.webhookEndpoints.update("${SAMPLES.webhookEndpointId}", ${j(fixture.body)});`,
+  rotateWebhookEndpointSecret: () =>
+    `await myhr.webhookEndpoints.rotateSecret("${SAMPLES.webhookEndpointId}");`,
+  deleteWebhookEndpoint: () =>
+    `await myhr.webhookEndpoints.delete("${SAMPLES.webhookEndpointId}");`,
+
+  // Webhook deliveries
+  listWebhookDeliveries: () =>
+    `await myhr.webhookDeliveries.list({ status: "delivered", limit: 50 });`,
+  getWebhookDelivery: () =>
+    `await myhr.webhookDeliveries.get("${SAMPLES.webhookDeliveryId}");`,
+  redeliverWebhookDelivery: () =>
+    `await myhr.webhookDeliveries.redeliver("${SAMPLES.webhookDeliveryId}");`,
 };
 
 function j(v: unknown): string {
@@ -287,7 +308,7 @@ export function postprocess(spec: Json): Json {
       tags.push({
         name: "Webhooks",
         description:
-          "Forward-looking event contract. MyHR will POST these payloads to a per-org delivery URL. Delivery, signing (HMAC-SHA256), and retries ship in a follow-up release.",
+          "Webhook endpoint management + delivery audit. Manage where MyHR delivers events with `/v1/webhook-endpoints/*`; inspect or replay attempts with `/v1/webhook-deliveries/*`. The event payloads MyHR actually POSTs are documented under the **Webhooks** section.",
       });
       spec.tags = tags;
     }

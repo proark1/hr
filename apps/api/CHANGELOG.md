@@ -13,6 +13,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Webhook delivery (live).** `POST /v1/webhook-endpoints` registers a URL
+  and returns a signing secret once; `GET`/`PATCH`/`DELETE` manage it;
+  `POST /v1/webhook-endpoints/{id}/rotate-secret` mints a fresh secret.
+  Every successful employee mutation enqueues an event per subscribed
+  endpoint via pg-boss, signed with HMAC-SHA256 in the `Webhook-Signature`
+  header. Up to 8 attempts with exponential backoff. The delivery audit
+  log is exposed at `/v1/webhook-deliveries`, and any non-delivered row
+  can be replayed via `/v1/webhook-deliveries/{id}/redeliver`. The SDK
+  exposes `verifyWebhookSignature()` for receivers.
 - Rate limiter: token-bucket per authenticated caller. 600/min sustained,
   bursts up to 60. Standard `RateLimit-Limit` / `RateLimit-Remaining` /
   `RateLimit-Reset` headers on every authenticated response; `429

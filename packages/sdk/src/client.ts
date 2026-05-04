@@ -16,6 +16,12 @@ import type {
   EmployeeCreate,
   EmployeeUpdate,
   EmployeeListQuery,
+  WebhookEndpoint,
+  WebhookEndpointCreate,
+  WebhookEndpointUpdate,
+  WebhookEndpointWithSecret,
+  WebhookDelivery,
+  WebhookDeliveryListQuery,
 } from "@myhr/types";
 import { MyHRError, type ApiErrorBody } from "./errors.js";
 
@@ -178,6 +184,52 @@ export function createClient(config: ClientConfig) {
     superadmin: {
       listOrgs: (q?: { cursor?: string; limit?: number }) =>
         request<Page<Org>>("GET", `/v1/superadmin/orgs${qs(q)}`),
+    },
+
+    /** Webhook endpoints. */
+    webhookEndpoints: {
+      create: (body: WebhookEndpointCreate, ctx?: CallerContext) =>
+        request<WebhookEndpointWithSecret>("POST", "/v1/webhook-endpoints", {
+          body,
+          ctx,
+        }),
+      list: (ctx?: CallerContext) =>
+        request<{ items: WebhookEndpoint[] }>("GET", "/v1/webhook-endpoints", {
+          ctx,
+        }),
+      get: (id: string, ctx?: CallerContext) =>
+        request<WebhookEndpoint>("GET", `/v1/webhook-endpoints/${id}`, { ctx }),
+      update: (id: string, body: WebhookEndpointUpdate, ctx?: CallerContext) =>
+        request<WebhookEndpoint>("PATCH", `/v1/webhook-endpoints/${id}`, {
+          body,
+          ctx,
+        }),
+      rotateSecret: (id: string, ctx?: CallerContext) =>
+        request<WebhookEndpointWithSecret>(
+          "POST",
+          `/v1/webhook-endpoints/${id}/rotate-secret`,
+          { ctx },
+        ),
+      delete: (id: string, ctx?: CallerContext) =>
+        request<void>("DELETE", `/v1/webhook-endpoints/${id}`, { ctx }),
+    },
+
+    /** Webhook delivery audit + replay. */
+    webhookDeliveries: {
+      list: (q?: WebhookDeliveryListQuery, ctx?: CallerContext) =>
+        request<Page<WebhookDelivery>>(
+          "GET",
+          `/v1/webhook-deliveries${qs(q as Record<string, string | number | undefined>)}`,
+          { ctx },
+        ),
+      get: (id: string, ctx?: CallerContext) =>
+        request<WebhookDelivery>("GET", `/v1/webhook-deliveries/${id}`, { ctx }),
+      redeliver: (id: string, ctx?: CallerContext) =>
+        request<WebhookDelivery>(
+          "POST",
+          `/v1/webhook-deliveries/${id}/redeliver`,
+          { ctx },
+        ),
     },
   };
 }
