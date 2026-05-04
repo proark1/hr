@@ -11,6 +11,7 @@ import {
 
 import { env } from "./env.js";
 import { ApiError } from "./errors.js";
+import { apiDescription } from "./lib/api-description.js";
 import prismaPlugin from "./plugins/prisma.js";
 import authPlugin from "./plugins/auth/index.js";
 import tenantPlugin from "./plugins/tenant.js";
@@ -72,40 +73,7 @@ export async function buildServer() {
       openapi: "3.0.3",
       info: {
         title: "MyHR API",
-        description: [
-          "API-first HR service for [1tap.ai](https://1tap.ai). One master integrator (1tap) provisions and operates many startup tenants. End users never log in to MyHR — 1tap brings their own UI and OAuth and calls this API on their behalf.",
-          "",
-          "## Authentication",
-          "",
-          "Every authenticated request sends a master API key as a bearer token:",
-          "",
-          "```",
-          "Authorization: Bearer <MASTER_API_KEY>",
-          "```",
-          "",
-          "## Tenant scoping",
-          "",
-          "Tenant-scoped endpoints additionally require `X-Tenant-Id` (a UUID identifying the startup org). All data access is enforced by Postgres Row-Level Security — a missing or wrong tenant id never returns another tenant's data.",
-          "",
-          "## Audit attribution",
-          "",
-          "Optionally pass `X-Actor: {\"id\":\"u_123\",\"email\":\"a@b\",\"name\":\"Ada\"}` (JSON) to attribute the request to a specific 1tap user in the audit log.",
-          "",
-          "## Idempotency",
-          "",
-          "Writes (`POST` / `PATCH` / `DELETE`) require an `Idempotency-Key` header. Replays return the cached response. Reusing a key with a different body returns `409`.",
-          "",
-          "## Quickstart",
-          "",
-          "```bash",
-          "curl https://api.myhr.example/v1/employees \\",
-          "  -H 'Authorization: Bearer $MASTER_API_KEY' \\",
-          "  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\",
-          "  -H 'Idempotency-Key: '\"$(uuidgen)\" \\",
-          "  -H 'Content-Type: application/json' \\",
-          "  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\"}'",
-          "```",
-        ].join("\n"),
+        description: apiDescription,
         version: "0.0.1",
       },
       servers: [
@@ -129,13 +97,56 @@ export async function buildServer() {
           masterApiKey: {
             type: "http",
             scheme: "bearer",
-            description: "Master API key issued to 1tap. Sent as `Authorization: Bearer <key>`.",
+            description:
+              "Master API key issued to 1tap (env `MASTER_API_KEY`). Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls.",
+          },
+          tenantApiKey: {
+            type: "http",
+            scheme: "bearer",
+            description:
+              "Org-scoped API key minted from the dashboard. Sent as `Authorization: Bearer mh_live_…`. The org id is derived from the key, so `X-Tenant-Id` is ignored.",
+          },
+          userSession: {
+            type: "http",
+            scheme: "bearer",
+            description:
+              "Better Auth session token forwarded by the web app. End-user callers send `X-Org-Id` to select which of their orgs the request targets. `X-Actor` is ignored on user-session requests (the actor is taken from the session to prevent spoofing).",
           },
         },
       },
-      security: [{ masterApiKey: [] }],
+      // Default security: any of the three schemes is acceptable. Routes
+      // narrow this via the `onRoute` hook below based on `config.allowedCallers`.
+      security: [{ masterApiKey: [] }, { tenantApiKey: [] }, { userSession: [] }],
     },
     transform: jsonSchemaTransform,
+  });
+
+  // Per-operation security derived from each route's `config.allowedCallers`.
+  // The auth/tenant plugins are the source of truth at runtime; this hook
+  // mirrors that into the spec so integrators see exactly which credential
+  // types each endpoint accepts.
+  type CallerType = "master" | "tenant_key" | "user";
+  const SCHEME_BY_CALLER: Record<CallerType, Record<string, string[]>> = {
+    master: { masterApiKey: [] },
+    tenant_key: { tenantApiKey: [] },
+    user: { userSession: [] },
+  };
+  const ALL_CALLERS: ReadonlyArray<CallerType> = ["master", "tenant_key", "user"];
+  app.addHook("onRoute", (route) => {
+    if (!route.schema) return;
+    if (route.url.startsWith("/openapi") || route.url === "/healthz" || route.url === "/") {
+      (route.schema as Record<string, unknown>).security = [];
+      return;
+    }
+    const cfg = (route.config ?? {}) as {
+      allowedCallers?: ReadonlyArray<CallerType>;
+      masterOnly?: boolean;
+    };
+    const allowed: ReadonlyArray<CallerType> =
+      cfg.allowedCallers ?? (cfg.masterOnly ? ["master"] : ALL_CALLERS);
+    (route.schema as Record<string, unknown>).security = allowed.map(
+      (c) => SCHEME_BY_CALLER[c],
+    );
   });
 
   await app.register(swaggerUi, {

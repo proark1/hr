@@ -116,27 +116,37 @@ curl -X POST http://localhost:8080/v1/employees \
 
 ## API docs
 
+- **Hosted Redoc reference**: <https://proark1.github.io/hr/> — rebuilt and
+  redeployed on every push to `main` ([`.github/workflows/docs.yml`](.github/workflows/docs.yml)).
+  The raw spec is mirrored at `https://proark1.github.io/hr/openapi.json`.
 - **Live Swagger UI**: every API instance serves an interactive doc UI at
   `/openapi`. Locally that's <http://localhost:8080/openapi>.
 - **OpenAPI spec**: served as JSON at `/openapi/json`, and committed to the
   repo at [`apps/api/openapi.json`](apps/api/openapi.json) as a snapshot. CI
   fails if the spec drifts from the routes.
-- **Static Redoc site**: `pnpm --filter @myhr/api openapi:docs` writes a
-  standalone HTML at `apps/api/dist-docs/index.html`. Each CI run uploads it
-  as the `api-docs` artifact.
-- **Per-operation examples**: every operation in the spec ships with a curl
-  invocation and an `@myhr/sdk` snippet (`x-codeSamples`), plus realistic
-  request/response/error examples. Paste-and-go.
+- **Per-operation examples + code samples**: every operation ships with a
+  curl invocation and an `@myhr/sdk` snippet (`x-codeSamples`), plus
+  realistic request/response/error examples. Paste-and-go.
+- **Per-operation security**: each operation declares which credential
+  types it accepts (`masterApiKey`, `tenantApiKey`, `userSession`),
+  derived from the same `allowedCallers` config the runtime enforces.
+- **Webhooks**: forward-looking event contract under the `Webhooks` section
+  of the spec — `employee.created`, `employee.updated`, `employee.deleted`,
+  `document.expiring`. Delivery and HMAC signing land in a follow-up.
 - **Typed SDK**: [`@myhr/sdk`](packages/sdk) exposes a method per
   operationId. CI runs `openapi:sdk-coverage` to fail the build if the SDK
-  drifts from the spec.
+  drifts — both methods missing for spec operations and SDK URLs that don't
+  exist in the spec.
+- **Changelog & versioning policy**: [`apps/api/CHANGELOG.md`](apps/api/CHANGELOG.md).
+  Within `/v1` we only ship additive changes; deprecations announce 90 days
+  ahead via `Deprecation` and `Sunset` headers (RFC 8594).
 
 ```bash
 # Local dev: open the interactive UI
 pnpm api:dev
 open http://localhost:8080/openapi
 
-# Build a shareable static doc site
+# Build a shareable static doc site (same as what gh-pages serves)
 pnpm --filter @myhr/api openapi:docs
 open apps/api/dist-docs/index.html
 ```

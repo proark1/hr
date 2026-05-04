@@ -13,6 +13,7 @@
  */
 
 import { ERROR_EXAMPLES, FIXTURES, SAMPLES, type OperationFixture } from "./openapi-fixtures.js";
+import { WEBHOOKS } from "./openapi-webhooks.js";
 
 type Json = Record<string, unknown>;
 type Operation = Json & {
@@ -31,6 +32,7 @@ type Method = (typeof HTTP_METHODS)[number];
 const TAG_GROUPS: Array<{ name: string; tags: string[] }> = [
   { name: "Public API", tags: ["Employees", "Orgs", "Members", "Invitations"] },
   { name: "Admin", tags: ["ApiKeys", "Me"] },
+  { name: "Webhooks", tags: ["Webhooks"] },
   { name: "Internal", tags: ["SuperAdmin", "Health"] },
 ];
 
@@ -275,6 +277,22 @@ export function postprocess(spec: Json): Json {
       for (const t of op?.tags ?? []) usedTags.add(t);
     }
   }
+  // Forward-looking webhook contract. Stored under `x-webhooks` (Redoc renders
+  // it the same way it would render OpenAPI 3.1 `webhooks`).
+  if (Object.keys(WEBHOOKS).length > 0) {
+    spec["x-webhooks"] = WEBHOOKS;
+    usedTags.add("Webhooks");
+    const tags = (spec.tags as Array<Record<string, unknown>> | undefined) ?? [];
+    if (!tags.some((t) => t.name === "Webhooks")) {
+      tags.push({
+        name: "Webhooks",
+        description:
+          "Forward-looking event contract. MyHR will POST these payloads to a per-org delivery URL. Delivery, signing (HMAC-SHA256), and retries ship in a follow-up release.",
+      });
+      spec.tags = tags;
+    }
+  }
+
   spec["x-tagGroups"] = TAG_GROUPS.map((g) => ({
     name: g.name,
     tags: g.tags.filter((t) => usedTags.has(t)),
