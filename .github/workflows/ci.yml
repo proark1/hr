@@ -19,7 +19,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @myhr/db generate
-      - run: pnpm --filter "@myhr/api^..." build
+      # Build every workspace package (db/types/sdk) so apps that import
+      # them resolve via their compiled dist/ during typecheck + next build.
+      - run: pnpm --filter "./packages/*" build
       - run: pnpm typecheck
       - name: Verify OpenAPI snapshot is up to date
         run: pnpm --filter @myhr/api openapi:check
