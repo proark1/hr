@@ -1,6 +1,13 @@
 import Fastify from "fastify";
 import sensible from "@fastify/sensible";
-import { serializerCompiler, validatorCompiler, ZodTypeProvider } from "fastify-type-provider-zod";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
+import {
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+  ZodTypeProvider,
+} from "fastify-type-provider-zod";
 
 import { env } from "./env.js";
 import { ApiError } from "./errors.js";
@@ -53,6 +60,36 @@ export async function buildServer() {
   });
 
   await app.register(sensible);
+
+  await app.register(swagger, {
+    openapi: {
+      openapi: "3.1.0",
+      info: {
+        title: "MyHR API",
+        description:
+          "API-first HR service for 1tap.ai. One master integrator provisions and operates many startup tenants.",
+        version: "0.0.1",
+      },
+      servers: [{ url: "https://api.myhr.example", description: "production" }],
+      components: {
+        securitySchemes: {
+          masterApiKey: {
+            type: "http",
+            scheme: "bearer",
+            description: "Master API key issued to 1tap. Sent as `Authorization: Bearer <key>`.",
+          },
+        },
+      },
+      security: [{ masterApiKey: [] }],
+    },
+    transform: jsonSchemaTransform,
+  });
+
+  await app.register(swaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: { docExpansion: "list", deepLinking: true },
+  });
+
   await app.register(prismaPlugin);
   await app.register(authPlugin);
   await app.register(tenantPlugin);
