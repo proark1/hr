@@ -1,0 +1,7 @@
+.next
+.turbo
+out
+node_modules
+*.log
+.env*.local
+next-env.d.ts.bak

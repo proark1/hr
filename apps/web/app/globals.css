@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/*
+ * MyHR theme tokens. Single source of truth for the cream main / dark navy
+ * sidebar / blue gradient stat-tile look. Tailwind 4's @theme directive
+ * lets us use these as utility classes (e.g. bg-background, text-sidebar)
+ * without a JS tailwind.config.
+ */
+@theme {
+  /* Cream main canvas, near-black text. */
+  --color-background: oklch(0.96 0.02 80);
+  --color-foreground: oklch(0.14 0.02 260);
+
+  --color-card: oklch(0.99 0.005 80);
+  --color-card-foreground: oklch(0.14 0.02 260);
+
+  --color-muted: oklch(0.93 0.01 80);
+  --color-muted-foreground: oklch(0.45 0.02 260);
+
+  --color-border: oklch(0.88 0.01 80);
+  --color-input: oklch(0.88 0.01 80);
+  --color-ring: oklch(0.6 0.18 250);
+
+  /* Dark navy sidebar with off-white text. */
+  --color-sidebar: oklch(0.18 0.04 260);
+  --color-sidebar-foreground: oklch(0.95 0.005 80);
+  --color-sidebar-muted: oklch(0.65 0.02 260);
+  --color-sidebar-active: oklch(0.28 0.05 260);
+
+  /* Blue primary used for buttons, focus rings, brand accents. */
+  --color-primary: oklch(0.6 0.18 250);
+  --color-primary-foreground: oklch(0.99 0 0);
+
+  --color-destructive: oklch(0.62 0.22 25);
+  --color-destructive-foreground: oklch(0.99 0 0);
+
+  /* Gradient used by the primary stat tile (matches the screenshot). */
+  --color-brand-gradient-from: oklch(0.62 0.18 255);
+  --color-brand-gradient-to: oklch(0.45 0.2 270);
+
+  --radius-md: 0.625rem;
+}
+
+html, body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+}
