@@ -13,6 +13,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Rate limiter: token-bucket per authenticated caller. 600/min sustained,
+  bursts up to 60. Standard `RateLimit-Limit` / `RateLimit-Remaining` /
+  `RateLimit-Reset` headers on every authenticated response; `429
+  rate_limited` (with `Retry-After`) when exceeded. Configurable via
+  `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BURST`; bypass with
+  `RATE_LIMIT_DISABLED=1` for tests.
 - OpenAPI: per-operation `security` derived from each route's allowed caller
   types (`masterApiKey`, `tenantApiKey`, `userSession`).
 - OpenAPI: forward-looking `x-webhooks` block describing `employee.created`,

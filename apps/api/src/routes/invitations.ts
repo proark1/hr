@@ -50,7 +50,7 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
           "Creates an invitation record and returns the acceptance URL plus the plaintext token. Owner/admin only for user callers; master + tenant_key callers bypass the role check.",
         headers: orgWriteHeaders,
         body: InvitationCreate,
-        response: { 201: InvitationCreated, ...errorResponses(400, 401, 403, 409, 500) },
+        response: { 201: InvitationCreated, ...errorResponses(400, 401, 403, 409, 429, 500) },
       },
       config: {
         requireTenant: true,
@@ -155,7 +155,7 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
         description:
           "Returns invitations for the resolved org that haven't been accepted or revoked.",
         headers: orgReadHeaders,
-        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 500) },
+        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 429, 500) },
       },
       config: {
         requireTenant: true,
@@ -209,7 +209,7 @@ export const invitationAcceptRoutes: FastifyPluginAsyncZod = async (app) => {
           "Exchanges an invitation token for a membership. The caller's email must match the email on the invitation.",
         headers: userWriteHeaders,
         body: InvitationAccept,
-        response: { 200: Membership, ...errorResponses(400, 401, 403, 404, 409, 500) },
+        response: { 200: Membership, ...errorResponses(400, 401, 403, 404, 409, 429, 500) },
       },
       config: { allowedCallers: ["user"] },
     },

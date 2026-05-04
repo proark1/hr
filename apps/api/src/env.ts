@@ -9,6 +9,15 @@ const Env = z
     DIRECT_DATABASE_URL: z.string().min(1).optional(),
     PUBLIC_API_URL: z.string().url().optional(),
     MASTER_API_KEY: z.string().min(16),
+    // Rate limiting. Token-bucket per authenticated caller (master keyId,
+    // tenant keyId, or user id). 600/min sustained with bursts up to 60.
+    // Set RATE_LIMIT_DISABLED=1 in tests to bypass the limiter entirely.
+    RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(600),
+    RATE_LIMIT_BURST: z.coerce.number().int().min(1).default(60),
+    RATE_LIMIT_DISABLED: z
+      .union([z.literal("1"), z.literal("true"), z.literal("0"), z.literal("false")])
+      .optional()
+      .transform((v) => v === "1" || v === "true"),
     FIELD_ENCRYPTION_KEY: z.string().optional(),
     WEBHOOK_SIGNING_SECRET: z.string().optional(),
     // Better Auth — only required once we accept end-user logins. The user

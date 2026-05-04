@@ -19,7 +19,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "Get the authenticated user",
         description: "Returns the currently authenticated end user. User callers only.",
         headers: userReadHeaders,
-        response: { 200: Me, ...errorResponses(401, 403, 500) },
+        response: { 200: Me, ...errorResponses(401, 403, 429, 500) },
       },
       config: { allowedCallers: ["user"] },
     },
@@ -57,7 +57,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
         description:
           "Returns one row per org the caller has a membership in, denormalised with the org and the caller's role.",
         headers: userReadHeaders,
-        response: { 200: MyOrgsResponse, ...errorResponses(401, 403, 500) },
+        response: { 200: MyOrgsResponse, ...errorResponses(401, 403, 429, 500) },
       },
       config: { allowedCallers: ["user"] },
     },

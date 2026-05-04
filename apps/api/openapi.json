@@ -303,6 +303,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -553,6 +597,50 @@
                   "error": {
                     "code": "forbidden",
                     "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -858,6 +946,50 @@
                   "error": {
                     "code": "forbidden",
                     "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -1232,6 +1364,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -1541,6 +1717,50 @@
                   "error": {
                     "code": "not_found",
                     "message": "Not found"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -1947,6 +2167,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -2245,6 +2509,50 @@
                   "error": {
                     "code": "forbidden",
                     "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -2637,6 +2945,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -2934,6 +3286,50 @@
                   "error": {
                     "code": "forbidden",
                     "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -3301,6 +3697,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -3628,6 +4068,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -3923,6 +4407,50 @@
                   "error": {
                     "code": "forbidden",
                     "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -4342,6 +4870,50 @@
                   "error": {
                     "code": "forbidden",
                     "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -4827,6 +5399,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -5214,6 +5830,50 @@
                   "error": {
                     "code": "not_found",
                     "message": "Not found"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -5738,6 +6398,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -6083,6 +6787,50 @@
                   "error": {
                     "code": "conflict",
                     "message": "An employee with that email or external_id already exists"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }
@@ -6497,6 +7245,50 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Unexpected server error.",
             "content": {
@@ -6753,6 +7545,50 @@
                   "error": {
                     "code": "forbidden",
                     "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
                   }
                 }
               }

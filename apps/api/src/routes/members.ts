@@ -18,7 +18,7 @@ const memberRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "List org members",
         description: "Returns all active members of the resolved org with their role and identity.",
         headers: orgReadHeaders,
-        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 500) },
+        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 429, 500) },
       },
       config: {
         requireTenant: true,

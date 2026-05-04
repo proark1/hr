@@ -20,6 +20,7 @@ const STATUS_DESCRIPTIONS: Record<number, string> = {
   403: "Caller is authenticated but not allowed to perform this action.",
   404: "Resource not found.",
   409: "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body.",
+  429: "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
   500: "Unexpected server error.",
 };
 

@@ -21,4 +21,11 @@ export const Errors = {
     new ApiError(400, "bad_request", msg, details),
   tenantRequired: (header = "X-Tenant-Id") =>
     new ApiError(400, "tenant_required", `${header} header is required for this endpoint`),
+  rateLimited: (retryAfterSec: number) =>
+    new ApiError(
+      429,
+      "rate_limited",
+      `Rate limit exceeded. Retry after ${retryAfterSec}s.`,
+      { retryAfterSec },
+    ),
 };

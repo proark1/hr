@@ -32,7 +32,7 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
           "Creates a new tenant-scoped API key. The plaintext value is returned once and never again — store it immediately.",
         headers: orgWriteHeaders,
         body: ApiKeyCreate,
-        response: { 201: ApiKeyCreated, ...errorResponses(400, 401, 403, 500) },
+        response: { 201: ApiKeyCreated, ...errorResponses(400, 401, 403, 429, 500) },
       },
       config: {
         requireTenant: true,
@@ -88,7 +88,7 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "List API keys for this org",
         description: "Returns metadata for every tenant-scoped key minted for this org. Plaintext keys are never returned.",
         headers: orgReadHeaders,
-        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 500) },
+        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 429, 500) },
       },
       config: {
         requireTenant: true,
