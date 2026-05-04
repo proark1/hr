@@ -6,3 +6,6 @@ rules:
   info-license: off
   # Health endpoints are public liveness probes — no auth, no 4xx.
   operation-4xx-response: off
+  # Every operation must declare a 2xx response — caught a real bug where
+  # DELETE /v1/webhook-endpoints/{id} only declared error responses.
+  operation-2xx-response: error

@@ -9052,6 +9052,9 @@
           }
         ],
         "responses": {
+          "204": {
+            "description": "Deleted. No response body."
+          },
           "400": {
             "description": "Validation or request shape error.",
             "content": {
