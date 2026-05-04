@@ -20,10 +20,15 @@ export function getPrisma(): PrismaClient {
  * Master callers set `isMaster = true` and bypass tenant filtering (used for
  * cross-tenant operations like provisioning a new org). Tenant callers MUST
  * pass `orgId` so a leaked or buggy query cannot escape the tenant.
+ *
+ * `userId` is optional and only meaningful for end-user (web app) callers;
+ * the org_memberships RLS self-policy uses it so a user can list their
+ * memberships across orgs without an org context selected. Master and
+ * tenant-key callers leave it null.
  */
 export async function withTenant<T>(
   prisma: PrismaClient,
-  ctx: { orgId: string | null; isMaster: boolean },
+  ctx: { orgId: string | null; isMaster: boolean; userId?: string | null },
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   return prisma.$transaction(async (tx) => {
@@ -35,6 +40,10 @@ export async function withTenant<T>(
     await tx.$executeRawUnsafe(
       `SELECT set_config('app.current_org_id', $1, true)`,
       ctx.orgId ?? "",
+    );
+    await tx.$executeRawUnsafe(
+      `SELECT set_config('app.current_user_id', $1, true)`,
+      ctx.userId ?? "",
     );
     return fn(tx);
   });
