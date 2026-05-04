@@ -22,22 +22,26 @@ export async function tryTenantKey(
   if (token.length < PREFIX_LEN + 1) return null;
   const prefix = token.slice(0, PREFIX_LEN);
 
+  // Lookup + lastUsedAt update in a single transaction to halve the
+  // set_config round-trips and avoid a second pooled connection.
   const apiKey = await withTenant(
     prisma,
     { orgId: null, isMaster: true },
-    (tx) =>
-      tx.apiKey.findFirst({
+    async (tx) => {
+      const key = await tx.apiKey.findFirst({
         where: { prefix, scope: "tenant", revokedAt: null },
         select: { id: true, hash: true, orgId: true },
-      }),
+      });
+      if (!key || !key.orgId) return null;
+      if (!timingSafeEqual(key.hash, sha256(token))) return null;
+      await tx.apiKey.update({
+        where: { id: key.id },
+        data: { lastUsedAt: new Date() },
+      });
+      return key;
+    },
   );
   if (!apiKey || !apiKey.orgId) return null;
-  if (!timingSafeEqual(apiKey.hash, sha256(token))) return null;
-
-  // Best-effort lastUsedAt update; don't block the request, don't fail it.
-  withTenant(prisma, { orgId: null, isMaster: true }, (tx) =>
-    tx.apiKey.update({ where: { id: apiKey.id }, data: { lastUsedAt: new Date() } }),
-  ).catch(() => {});
 
   return { type: "tenant_key", keyId: apiKey.id, orgId: apiKey.orgId };
 }
