@@ -20,18 +20,19 @@ const Env = z
     // otherwise session verification + origin checks would silently fail
     // against a localhost default in production.
     WEB_APP_URL: z.string().url().optional(),
-    // Email (Resend). Optional; if absent, invitation emails are logged
-    // to stdout instead of sent.
-    RESEND_API_KEY: z.string().optional(),
-    // Required when RESEND_API_KEY is set. e.g. "MyHR <noreply@myhr.eu>".
+    // Email — proark1/emailservice (mailnowapi.com). Optional; if absent,
+    // invitation emails are logged to stdout instead of sent.
+    MAILNOW_API_URL: z.string().url().default("https://mailnowapi.com"),
+    MAILNOW_API_KEY: z.string().optional(),
+    // Required when MAILNOW_API_KEY is set. e.g. "MyHR <noreply@myhr.eu>".
     EMAIL_FROM: z.string().optional(),
   })
   .refine((d) => !d.BETTER_AUTH_SECRET || !!d.WEB_APP_URL, {
     message: "WEB_APP_URL is required when BETTER_AUTH_SECRET is set",
     path: ["WEB_APP_URL"],
   })
-  .refine((d) => !d.RESEND_API_KEY || !!d.EMAIL_FROM, {
-    message: "EMAIL_FROM is required when RESEND_API_KEY is set",
+  .refine((d) => !d.MAILNOW_API_KEY || !!d.EMAIL_FROM, {
+    message: "EMAIL_FROM is required when MAILNOW_API_KEY is set",
     path: ["EMAIL_FROM"],
   });
 

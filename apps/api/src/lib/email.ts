@@ -1,13 +1,4 @@
-import { Resend } from "resend";
 import { env } from "../env.js";
-
-let _resend: Resend | null | undefined;
-
-function getResend(): Resend | null {
-  if (_resend !== undefined) return _resend;
-  _resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
-  return _resend;
-}
 
 type InvitationEmailInput = {
   to: string;
@@ -19,10 +10,13 @@ type InvitationEmailInput = {
   expiresAt: Date;
 };
 
+type Logger = { info: (...a: unknown[]) => void; error: (...a: unknown[]) => void };
+
 /**
- * Send an invitation email via Resend. If RESEND_API_KEY is unset we log
- * the payload + accept URL to stdout (useful for dev and for environments
- * where 1tap or another integrator drives the email sending themselves).
+ * Send an invitation email via the proark1/emailservice
+ * (https://mailnowapi.com). If MAILNOW_API_KEY is unset we log the payload
+ * + accept URL to stdout — useful for dev and for environments where
+ * a different integrator drives the email sending themselves.
  *
  * Failures don't propagate — invitation creation already succeeded by the
  * time we get here, and we don't want a downstream email outage to fail
@@ -30,7 +24,7 @@ type InvitationEmailInput = {
  */
 export async function sendInvitationEmail(
   input: InvitationEmailInput,
-  log: { info: (...a: unknown[]) => void; error: (...a: unknown[]) => void },
+  log: Logger,
 ): Promise<void> {
   const inviter = input.inviterName ?? input.inviterEmail;
   const subject = `You've been invited to ${input.orgName} on MyHR`;
@@ -71,23 +65,33 @@ export async function sendInvitationEmail(
     </div>
   `;
 
-  const resend = getResend();
-  if (!resend || !env.EMAIL_FROM) {
+  if (!env.MAILNOW_API_KEY || !env.EMAIL_FROM) {
     log.info(
       { to: input.to, subject, acceptUrl: input.acceptUrl },
-      "[email] RESEND_API_KEY not set — invitation email skipped (would have sent)",
+      "[email] MAILNOW_API_KEY not set — invitation email skipped (would have sent)",
     );
     return;
   }
 
   try {
-    await resend.emails.send({
-      from: env.EMAIL_FROM,
-      to: [input.to],
-      subject,
-      text,
-      html,
+    const res = await fetch(`${env.MAILNOW_API_URL.replace(/\/$/, "")}/v1/emails`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.MAILNOW_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM,
+        to: [input.to],
+        subject,
+        html,
+        text,
+      }),
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      log.error({ status: res.status, body, to: input.to }, "[email] mailnow API rejected send");
+    }
   } catch (err) {
     log.error({ err, to: input.to }, "[email] failed to send invitation email");
   }
