@@ -19,6 +19,6 @@ export const Errors = {
     new ApiError(409, "conflict", msg, details),
   badRequest: (msg = "Bad request", details?: unknown) =>
     new ApiError(400, "bad_request", msg, details),
-  tenantRequired: () =>
-    new ApiError(400, "tenant_required", "X-Tenant-Id header is required for this endpoint"),
+  tenantRequired: (header = "X-Tenant-Id") =>
+    new ApiError(400, "tenant_required", `${header} header is required for this endpoint`),
 };
