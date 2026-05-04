@@ -20,6 +20,13 @@ const Env = z
       .transform((v) => v === "1" || v === "true"),
     FIELD_ENCRYPTION_KEY: z.string().optional(),
     WEBHOOK_SIGNING_SECRET: z.string().optional(),
+    // Set to disable the pg-boss-backed webhook worker (e.g. in tests). The
+    // CRUD routes still work; deliveries are recorded as `pending` and
+    // never sent.
+    WEBHOOKS_DISABLED: z
+      .union([z.literal("1"), z.literal("true"), z.literal("0"), z.literal("false")])
+      .optional()
+      .transform((v) => v === "1" || v === "true"),
     // Better Auth — only required once we accept end-user logins. The user
     // strategy short-circuits with 401 if these aren't set, so the API runs
     // happily with master + tenant-key callers only.

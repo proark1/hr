@@ -178,21 +178,60 @@ model IdempotencyKey {
   @@map("idempotency_keys")
 }
 
-// -- Webhooks (registration only; delivery wired in a later PR) --------------
+// -- Webhooks ----------------------------------------------------------------
 
 model WebhookEndpoint {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId      String?  @map("org_id") @db.Uuid // null = master-level (cross-tenant)
+  orgId      String?  @map("org_id") @db.Uuid // null = master-level (reserved; v1 only ships org-scoped)
   url        String
   events     String[] // e.g. ["employee.created", "leave.approved"]
   secret     String   // hmac signing secret for this endpoint
   disabledAt DateTime? @map("disabled_at")
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  org Org? @relation(fields: [orgId], references: [id])
+  org        Org?               @relation(fields: [orgId], references: [id])
+  deliveries WebhookDelivery[]
 
   @@index([orgId])
   @@map("webhook_endpoints")
+}
+
+enum WebhookDeliveryStatus {
+  pending
+  in_progress
+  delivered
+  failed_retrying
+  failed_permanent
+}
+
+model WebhookDelivery {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId            String                @map("org_id") @db.Uuid
+  endpointId       String                @map("endpoint_id") @db.Uuid
+  /// Logical event id. Reused for redeliveries so consumers can deduplicate.
+  eventId          String                @map("event_id") @db.Uuid
+  eventType        String                @map("event_type")
+  payload          Json
+  status           WebhookDeliveryStatus @default(pending)
+  attempts         Int                   @default(0)
+  maxAttempts      Int                   @default(8) @map("max_attempts")
+  lastResponseCode Int?                  @map("last_response_code")
+  /// Truncated to 4 KiB at write time so we don't blow up storage.
+  lastResponseBody String?               @map("last_response_body")
+  lastError        String?               @map("last_error")
+  lastAttemptAt    DateTime?             @map("last_attempt_at")
+  nextAttemptAt    DateTime?             @map("next_attempt_at")
+  deliveredAt      DateTime?             @map("delivered_at")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt(sort: Desc)])
+  @@index([endpointId, createdAt(sort: Desc)])
+  @@index([status, nextAttemptAt])
+  @@map("webhook_deliveries")
 }
 
 // -- Better Auth -------------------------------------------------------------

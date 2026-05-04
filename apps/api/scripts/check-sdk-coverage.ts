@@ -57,6 +57,17 @@ const SDK_METHODS: Record<string, string> = {
   exportEmployee: "employees.exportData",
 
   superadminListOrgs: "superadmin.listOrgs",
+
+  createWebhookEndpoint: "webhookEndpoints.create",
+  listWebhookEndpoints: "webhookEndpoints.list",
+  getWebhookEndpoint: "webhookEndpoints.get",
+  updateWebhookEndpoint: "webhookEndpoints.update",
+  rotateWebhookEndpointSecret: "webhookEndpoints.rotateSecret",
+  deleteWebhookEndpoint: "webhookEndpoints.delete",
+
+  listWebhookDeliveries: "webhookDeliveries.list",
+  getWebhookDelivery: "webhookDeliveries.get",
+  redeliverWebhookDelivery: "webhookDeliveries.redeliver",
 };
 
 function getOperationIds(spec: Spec): string[] {

@@ -140,8 +140,14 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
       });
       req.auditAction = "employee.created";
       req.auditResource = `employee:${created.id}`;
+      const out = serializeEmployee(created);
+      await app.emitWebhook({
+        orgId: req.tenantId!,
+        eventType: "employee.created",
+        data: out,
+      });
       reply.code(201);
-      return serializeEmployee(created);
+      return out;
     },
   );
 
@@ -226,7 +232,13 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
       });
       req.auditAction = "employee.updated";
       req.auditResource = `employee:${updated.id}`;
-      return serializeEmployee(updated);
+      const out = serializeEmployee(updated);
+      await app.emitWebhook({
+        orgId: req.tenantId!,
+        eventType: "employee.updated",
+        data: out,
+      });
+      return out;
     },
   );
 
@@ -279,7 +291,13 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
       );
       req.auditAction = "employee.deleted";
       req.auditResource = `employee:${out.id}`;
-      return { id: out.id, deletedAt: out.deletedAt!.toISOString() };
+      const summary = { id: out.id, deletedAt: out.deletedAt!.toISOString() };
+      await app.emitWebhook({
+        orgId: req.tenantId!,
+        eventType: "employee.deleted",
+        data: summary,
+      });
+      return summary;
     },
   );
 

@@ -15,6 +15,8 @@ process.env.NODE_ENV ??= "test";
 process.env.DATABASE_URL ??= "postgresql://stub:stub@localhost:5432/stub";
 process.env.MASTER_API_KEY ??= "0".repeat(32);
 process.env.PUBLIC_API_URL ??= "https://api.myhr.example";
+// pg-boss would try to connect during plugin init otherwise.
+process.env.WEBHOOKS_DISABLED ??= "1";
 
 const { buildServer } = await import("../src/server.js");
 const { postprocess } = await import("./postprocess-openapi.js");

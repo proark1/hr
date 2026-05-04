@@ -18,6 +18,7 @@ import rateLimitPlugin from "./plugins/rate-limit.js";
 import tenantPlugin from "./plugins/tenant.js";
 import idempotencyPlugin from "./plugins/idempotency.js";
 import auditPlugin from "./plugins/audit.js";
+import webhooksPlugin from "./plugins/webhooks.js";
 
 import healthRoutes from "./routes/health.js";
 import orgRoutes from "./routes/orgs.js";
@@ -27,6 +28,8 @@ import memberRoutes from "./routes/members.js";
 import invitationRoutes, { invitationAcceptRoutes } from "./routes/invitations.js";
 import apiKeyRoutes from "./routes/api-keys.js";
 import superAdminRoutes from "./routes/superadmin.js";
+import webhookEndpointRoutes from "./routes/webhook-endpoints.js";
+import webhookDeliveryRoutes from "./routes/webhook-deliveries.js";
 
 export async function buildServer() {
   const loggerOpts: Record<string, unknown> = {
@@ -161,6 +164,7 @@ export async function buildServer() {
   await app.register(tenantPlugin);
   await app.register(idempotencyPlugin);
   await app.register(auditPlugin);
+  await app.register(webhooksPlugin);
 
   await app.register(healthRoutes);
   await app.register(meRoutes, { prefix: "/v1/me" });
@@ -170,6 +174,8 @@ export async function buildServer() {
   await app.register(invitationAcceptRoutes, { prefix: "/v1/invitations" });
   await app.register(apiKeyRoutes, { prefix: "/v1/api-keys" });
   await app.register(employeeRoutes, { prefix: "/v1/employees" });
+  await app.register(webhookEndpointRoutes, { prefix: "/v1/webhook-endpoints" });
+  await app.register(webhookDeliveryRoutes, { prefix: "/v1/webhook-deliveries" });
   await app.register(superAdminRoutes, { prefix: "/v1/superadmin" });
 
   return app;

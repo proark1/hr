@@ -5,3 +5,4 @@ export * from "./user.js";
 export * from "./membership.js";
 export * from "./invitation.js";
 export * from "./api-key.js";
+export * from "./webhook.js";

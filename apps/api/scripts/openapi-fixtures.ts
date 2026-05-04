@@ -14,6 +14,11 @@ const SAMPLE_INVITE_TOKEN = "inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d";
 const SAMPLE_API_KEY_ID = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
 const SAMPLE_MEMBERSHIP_ID = "cccccccc-dddd-eeee-ffff-aaaaaaaaaaaa";
 const SAMPLE_USER_ID = "u_01HXYZUSER00000000000000";
+const SAMPLE_WEBHOOK_ENDPOINT_ID = "eeeeeeee-aaaa-bbbb-cccc-dddddddddddd";
+const SAMPLE_WEBHOOK_DELIVERY_ID = "ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb";
+const SAMPLE_EVENT_ID = "11112222-3333-4444-5555-666677778888";
+const SAMPLE_WEBHOOK_SECRET =
+  "whsec_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d";
 const NOW = "2026-05-04T12:00:00.000Z";
 
 export type OperationFixture = {
@@ -223,7 +228,123 @@ export const FIXTURES: Record<string, OperationFixture> = {
     query: { limit: 50 },
     response: { items: [org], nextCursor: null },
   },
+
+  // Webhook endpoints
+  createWebhookEndpoint: {
+    body: {
+      url: "https://api.1tap.ai/webhooks/myhr",
+      events: ["employee.created", "employee.updated"],
+    },
+    response: {
+      id: SAMPLE_WEBHOOK_ENDPOINT_ID,
+      orgId: SAMPLE_ORG_ID,
+      url: "https://api.1tap.ai/webhooks/myhr",
+      events: ["employee.created", "employee.updated"],
+      isActive: true,
+      createdAt: NOW,
+      updatedAt: NOW,
+      secret: SAMPLE_WEBHOOK_SECRET,
+    },
+  },
+  listWebhookEndpoints: {
+    response: {
+      items: [
+        {
+          id: SAMPLE_WEBHOOK_ENDPOINT_ID,
+          orgId: SAMPLE_ORG_ID,
+          url: "https://api.1tap.ai/webhooks/myhr",
+          events: ["employee.created", "employee.updated"],
+          isActive: true,
+          createdAt: NOW,
+          updatedAt: NOW,
+        },
+      ],
+    },
+  },
+  getWebhookEndpoint: {
+    pathParams: { id: SAMPLE_WEBHOOK_ENDPOINT_ID },
+    response: {
+      id: SAMPLE_WEBHOOK_ENDPOINT_ID,
+      orgId: SAMPLE_ORG_ID,
+      url: "https://api.1tap.ai/webhooks/myhr",
+      events: ["employee.created", "employee.updated"],
+      isActive: true,
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+  },
+  updateWebhookEndpoint: {
+    pathParams: { id: SAMPLE_WEBHOOK_ENDPOINT_ID },
+    body: { events: ["employee.created", "employee.updated", "employee.deleted"] },
+    response: {
+      id: SAMPLE_WEBHOOK_ENDPOINT_ID,
+      orgId: SAMPLE_ORG_ID,
+      url: "https://api.1tap.ai/webhooks/myhr",
+      events: ["employee.created", "employee.updated", "employee.deleted"],
+      isActive: true,
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+  },
+  rotateWebhookEndpointSecret: {
+    pathParams: { id: SAMPLE_WEBHOOK_ENDPOINT_ID },
+    response: {
+      id: SAMPLE_WEBHOOK_ENDPOINT_ID,
+      orgId: SAMPLE_ORG_ID,
+      url: "https://api.1tap.ai/webhooks/myhr",
+      events: ["employee.created", "employee.updated"],
+      isActive: true,
+      createdAt: NOW,
+      updatedAt: NOW,
+      secret: SAMPLE_WEBHOOK_SECRET,
+    },
+  },
+  deleteWebhookEndpoint: {
+    pathParams: { id: SAMPLE_WEBHOOK_ENDPOINT_ID },
+    response: null,
+  },
+
+  // Webhook deliveries
+  listWebhookDeliveries: {
+    query: { limit: 50, status: "delivered" },
+    response: {
+      items: [delivery()],
+      nextCursor: null,
+    },
+  },
+  getWebhookDelivery: {
+    pathParams: { id: SAMPLE_WEBHOOK_DELIVERY_ID },
+    response: delivery(),
+  },
+  redeliverWebhookDelivery: {
+    pathParams: { id: SAMPLE_WEBHOOK_DELIVERY_ID },
+    response: delivery({ status: "pending", attempts: 0, deliveredAt: null }),
+  },
 };
+
+function delivery(over: Partial<{
+  status: string;
+  attempts: number;
+  deliveredAt: string | null;
+}> = {}) {
+  return {
+    id: SAMPLE_WEBHOOK_DELIVERY_ID,
+    orgId: SAMPLE_ORG_ID,
+    endpointId: SAMPLE_WEBHOOK_ENDPOINT_ID,
+    eventId: SAMPLE_EVENT_ID,
+    eventType: "employee.created",
+    status: over.status ?? "delivered",
+    attempts: over.attempts ?? 1,
+    maxAttempts: 8,
+    lastResponseCode: 200,
+    lastResponseBody: "ok",
+    lastError: null,
+    lastAttemptAt: NOW,
+    nextAttemptAt: null,
+    deliveredAt: over.deliveredAt === undefined ? NOW : over.deliveredAt,
+    createdAt: NOW,
+  };
+}
 
 export const ERROR_EXAMPLES: Record<number, unknown> = {
   400: {
@@ -266,4 +387,6 @@ export const SAMPLES = {
   inviteToken: SAMPLE_INVITE_TOKEN,
   userId: SAMPLE_USER_ID,
   apiKeyId: SAMPLE_API_KEY_ID,
+  webhookEndpointId: SAMPLE_WEBHOOK_ENDPOINT_ID,
+  webhookDeliveryId: SAMPLE_WEBHOOK_DELIVERY_ID,
 };
