@@ -1,26 +1,31 @@
 # MyHR
 
-API-first HR service for [1tap.ai](https://1tap.ai). One master integrator
-(1tap) provisions and operates many startup tenants. End users never log in to
-MyHR — 1tap brings their own UI and OAuth and calls our API on behalf of users.
+API-first HR service for [1tap.ai](https://1tap.ai) **and** direct B2B customers.
+1tap drives many startup tenants via a single master API key with their own UI.
+Direct customers sign up at `app.myhr.eu`, manage their own org, employees, and
+team via our dashboard. Both surfaces hit the same `/v1/*` API and share one
+Postgres with row-level security.
 
 - **Markets**: US + DE (GDPR-compliant by default; Railway EU region)
-- **Surface**: REST + MCP server + webhooks. No UI on our side.
-- **Auth**: single master API key for 1tap; `X-Tenant-Id` per request scopes
-  to a startup; `X-Actor` attributes the request to a 1tap user for the audit log.
-- **Notifications**: 1tap owns all of them — we expose data and fire webhooks.
+- **Surfaces**: REST + MCP server + webhooks (planned) + Next.js web app
+- **Auth**:
+  - 1tap: single master API key (`Authorization: Bearer mh_live_…` + `X-Tenant-Id`)
+  - Direct customers: Better Auth (email/password + Google) on the web app;
+    server actions forward a session token to the API as `Authorization: Bearer`
+- **Notifications**: invitation emails go via [proark1/emailservice](https://github.com/proark1/emailservice)
+  (mailnowapi.com) — toggle by setting `MAILNOW_API_KEY`
 
 ## Features (v1 scope)
 
-1. Employees
-2. Employee contracts *(next PR)*
-3. Time off / vacation with US + DE presets *(next PR)*
+1. Employees ✅
+2. Members + invitations ✅
+3. API keys (mintable from the dashboard) ✅
 4. Org chart *(next PR)*
-5. Onboarding & offboarding checklists *(next PR)*
+5. Time off / vacation with US + DE presets *(next PR)*
 6. Documents with expiry reminders *(next PR)*
 7. Performance reviews & 1:1s *(next PR)*
 8. Compensation history *(next PR)*
-9. Roles, permissions, audit log
+9. Roles, permissions, audit log ✅
 
 ## Repo layout
 
@@ -28,19 +33,23 @@ MyHR — 1tap brings their own UI and OAuth and calls our API on behalf of users
 apps/
   api/        Fastify HTTP API (Railway)
   mcp/        MCP server for agents
+  web/        Next.js 15 dashboard (Vercel)
 packages/
   db/         Prisma schema + RLS migration
   types/      Shared Zod schemas
+  sdk/        Typed REST client (@myhr/sdk)
 ```
 
 ## Stack
 
-- Node 22 + TypeScript + Fastify 5 + Zod
+- Node 22 + TypeScript + Fastify 5 + Zod (API)
+- Next.js 15 + Tailwind 4 + Better Auth + shadcn/ui-style primitives (web)
 - Postgres (Railway EU) + Prisma + Row-Level Security
 - Cloudflare R2 (EU) for documents *(next PR)*
 - Stripe Invoicing for monthly billing *(next PR)*
 - pg-boss for background jobs *(next PR)*
-- Resend for transactional email *(only used if a tenant explicitly opts in)*
+- mailnowapi for transactional email
+
 
 ## Tenancy & data isolation
 
@@ -134,10 +143,15 @@ open apps/api/dist-docs/index.html
 
 ## Deployment
 
-- **Railway** (EU region) hosts the API + Postgres. The API service runs the
-  Prisma migration on deploy via the `startCommand` in `apps/api/railway.json`.
+- **Railway** (EU region) hosts the API + Postgres. The API service runs
+  `prisma migrate deploy` as the `preDeployCommand` from `railway.json`.
+- **Vercel** hosts `apps/web` (Next.js). The Vercel project's Root Directory
+  is `apps/web`; preview deployments fire on every PR.
 - The MCP server runs locally inside 1tap's environment per agent session, or
   alongside the API if hosted execution is desired later.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full env-var matrix, custom-domain
+setup, and verification steps.
 
 ## GDPR
 
