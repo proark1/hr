@@ -19,4 +19,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @myhr/db generate
+      - run: pnpm --filter "@myhr/api^..." build
       - run: pnpm typecheck

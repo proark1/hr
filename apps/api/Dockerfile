@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY . .
 RUN pnpm --filter @myhr/db generate
+RUN pnpm --filter "@myhr/api^..." build
 RUN pnpm --filter @myhr/api build
 
 FROM base AS runtime
