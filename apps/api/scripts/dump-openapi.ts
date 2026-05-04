@@ -17,11 +17,14 @@ process.env.MASTER_API_KEY ??= "0".repeat(32);
 process.env.PUBLIC_API_URL ??= "https://api.myhr.example";
 
 const { buildServer } = await import("../src/server.js");
+const { postprocess } = await import("./postprocess-openapi.js");
 
 const app = await buildServer();
 await app.ready();
-const spec = app.swagger();
+const raw = app.swagger() as Record<string, unknown>;
 await app.close();
+
+const spec = postprocess(raw);
 
 const outPath = resolve(process.cwd(), "openapi.json");
 writeFileSync(outPath, JSON.stringify(spec, null, 2) + "\n");
