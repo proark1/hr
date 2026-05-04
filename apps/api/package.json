@@ -10,10 +10,15 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "openapi:dump": "tsx scripts/dump-openapi.ts",
+    "openapi:check": "tsx scripts/dump-openapi.ts && git diff --exit-code -- openapi.json",
+    "openapi:lint": "redocly lint openapi.json"
   },
   "dependencies": {
     "@fastify/sensible": "6.0.2",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.6",
     "@myhr/db": "workspace:*",
     "@myhr/types": "workspace:*",
     "better-auth": "1.1.21",
@@ -24,6 +29,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@redocly/cli": "^1.34.14",
     "@types/node": "22.9.0",
     "tsx": "4.19.2",
     "typescript": "5.6.3"

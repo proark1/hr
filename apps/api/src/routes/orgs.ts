@@ -3,6 +3,11 @@ import { z } from "zod";
 import { Org, OrgCreate, OrgUpdate } from "@myhr/types";
 import { withTenant } from "@myhr/db";
 import { Errors } from "../errors.js";
+import {
+  errorResponses,
+  masterReadHeaders,
+  masterWriteHeaders,
+} from "../lib/openapi.js";
 
 const PageQuery = z.object({
   cursor: z.string().optional(),
@@ -17,11 +22,16 @@ const ListResponse = z.object({
 const orgRoutes: FastifyPluginAsyncZod = async (app) => {
   // List orgs — master only.
   app.get(
-    "/",
+    "",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "listOrgs",
+        summary: "List orgs (master only)",
+        description: "Lists all tenant orgs. Restricted to the master integrator (1tap).",
+        headers: masterReadHeaders,
         querystring: PageQuery,
-        response: { 200: ListResponse },
+        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 500) },
       },
       config: { masterOnly: true },
     },
@@ -47,11 +57,16 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // Create org — master only. 1tap calls this to provision a startup.
   app.post(
-    "/",
+    "",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "createOrg",
+        summary: "Create org (master only)",
+        description: "Provisions a new tenant org. Called by 1tap when onboarding a startup.",
+        headers: masterWriteHeaders,
         body: OrgCreate,
-        response: { 201: Org },
+        response: { 201: Org, ...errorResponses(400, 401, 403, 409, 500) },
       },
       config: { masterOnly: true },
     },
@@ -72,8 +87,13 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "getOrg",
+        summary: "Get org (master only)",
+        description: "Returns a single tenant org by id.",
+        headers: masterReadHeaders,
         params: z.object({ id: z.string().uuid() }),
-        response: { 200: Org },
+        response: { 200: Org, ...errorResponses(400, 401, 403, 404, 500) },
       },
       config: { masterOnly: true },
     },
@@ -92,9 +112,14 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "updateOrg",
+        summary: "Update org (master only)",
+        description: "Partially updates a tenant org.",
+        headers: masterWriteHeaders,
         params: z.object({ id: z.string().uuid() }),
         body: OrgUpdate,
-        response: { 200: Org },
+        response: { 200: Org, ...errorResponses(400, 401, 403, 404, 409, 500) },
       },
       config: { masterOnly: true },
     },
