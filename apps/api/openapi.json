@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "MyHR API",
-    "description": "API-first HR service for [1tap.ai](https://1tap.ai). One master integrator (1tap) provisions and operates many startup tenants. End users never log in to MyHR — 1tap brings their own UI and OAuth and calls this API on their behalf.\n\n## Authentication\n\nEvery authenticated request sends a master API key as a bearer token:\n\n```\nAuthorization: Bearer <MASTER_API_KEY>\n```\n\n## Tenant scoping\n\nTenant-scoped endpoints additionally require `X-Tenant-Id` (a UUID identifying the startup org). All data access is enforced by Postgres Row-Level Security — a missing or wrong tenant id never returns another tenant's data.\n\n## Audit attribution\n\nOptionally pass `X-Actor: {\"id\":\"u_123\",\"email\":\"a@b\",\"name\":\"Ada\"}` (JSON) to attribute the request to a specific 1tap user in the audit log.\n\n## Idempotency\n\nWrites (`POST` / `PATCH` / `DELETE`) require an `Idempotency-Key` header. Replays return the cached response. Reusing a key with a different body returns `409`.\n\n## Quickstart\n\n```bash\ncurl https://api.myhr.example/v1/employees \\\n  -H 'Authorization: Bearer $MASTER_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\"}'\n```",
+    "description": "API-first HR service for [1tap.ai](https://1tap.ai). One master integrator (1tap) provisions and operates many startup tenants. End users never log in to MyHR — 1tap brings their own UI and OAuth and calls this API on their behalf.\n\n## Authentication\n\nAll authenticated requests send a bearer token:\n\n```\nAuthorization: Bearer <token>\n```\n\nThree credential types are accepted (each operation lists which subset it allows):\n\n| Scheme | Token format | Used by |\n| --- | --- | --- |\n| `masterApiKey` | `mh_live_…` (env `MASTER_API_KEY`) | 1tap's backend, cross-tenant |\n| `tenantApiKey` | `mh_live_…` (minted from dashboard) | A startup's own integrations |\n| `userSession` | Better Auth session token | The MyHR web app, on behalf of a user |\n\n## Tenant scoping\n\nTenant-scoped endpoints resolve the tenant org per caller type:\n\n- `masterApiKey` → `X-Tenant-Id` header (UUID).\n- `tenantApiKey` → derived from the key; the header is ignored.\n- `userSession` → `X-Org-Id` header, validated against the user's memberships.\n\nAll data access is enforced by Postgres Row-Level Security — a missing or wrong tenant id never returns another tenant's data.\n\n## Audit attribution\n\nMaster callers can pass `X-Actor: {\"id\":\"u_123\",\"email\":\"a@b\",\"name\":\"Ada\"}` (JSON) to attribute the request to a specific 1tap user in the audit log. User-session callers cannot set `X-Actor` (the actor is taken from the session to prevent spoofing).\n\n## Idempotency\n\nWrites (`POST` / `PATCH` / `DELETE`) require an `Idempotency-Key` header (any unique string per logical operation, typically a UUID). Replays within 24h return the cached response. Reusing a key with a different request body returns `409 conflict`.\n\n## Errors\n\nEvery error response uses a single envelope:\n\n```json\n{ \"error\": { \"code\": \"not_found\", \"message\": \"...\", \"details\": {} } }\n```\n\nStable codes: `bad_request`, `tenant_required`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `internal_error`. New codes are additive — clients should switch on `code` and treat unknown codes as a generic failure.\n\n## Pagination\n\nList endpoints use opaque cursors. Pass `?limit=` (1–200, default 50) and `?cursor=<value>` to page forward. The response is `{ items: [...], nextCursor: string | null }` — `nextCursor: null` means you're at the end. Cursors are stable across writes (deletions skip rather than fail).\n\n## Rate limits\n\nEach `masterApiKey` and `tenantApiKey` is limited to **600 requests / minute**, burst 60/sec. Limits are returned on every response:\n\n- `RateLimit-Limit` — total per window\n- `RateLimit-Remaining` — left in window\n- `RateLimit-Reset` — seconds until reset\n\nExceeding the limit returns `429 too_many_requests`. Retry with exponential backoff using the `Retry-After` header.\n\n## Versioning\n\nThe major version is in the URL (`/v1`). Within a major version we only make additive changes (new fields, new operations, new error codes). Deprecations are announced at least 90 days in advance via the `Deprecation` and `Sunset` response headers ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)) and called out in [`apps/api/CHANGELOG.md`](https://github.com/proark1/hr/blob/main/apps/api/CHANGELOG.md).\n\nBreaking changes only ever ship under a new major (`/v2`), and `/v1` will run alongside it for at least 12 months.\n\n## Webhooks (preview)\n\nMyHR will fire HTTPS webhooks to a per-org delivery URL when employee data changes (`employee.created`, `employee.updated`, `employee.deleted`) and when documents approach expiry (`document.expiring`). Event payloads are documented under the **Webhooks** section of the spec. Delivery, signing (`Webhook-Signature` header, HMAC-SHA256), and retry semantics ship in a follow-up release.\n\n## Quickstart\n\n```bash\ncurl https://api.myhr.example/v1/employees \\\n  -H 'Authorization: Bearer $MASTER_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\"}'\n```",
     "version": "0.0.1"
   },
   "components": {
@@ -10,7 +10,17 @@
       "masterApiKey": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Master API key issued to 1tap. Sent as `Authorization: Bearer <key>`."
+        "description": "Master API key issued to 1tap (env `MASTER_API_KEY`). Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls."
+      },
+      "tenantApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Org-scoped API key minted from the dashboard. Sent as `Authorization: Bearer mh_live_…`. The org id is derived from the key, so `X-Tenant-Id` is ignored."
+      },
+      "userSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Better Auth session token forwarded by the web app. End-user callers send `X-Org-Id` to select which of their orgs the request targets. `X-Actor` is ignored on user-session requests (the actor is taken from the session to prevent spoofing)."
       }
     },
     "schemas": {}
@@ -159,6 +169,11 @@
           "Me"
         ],
         "description": "Returns the currently authenticated end user. User callers only.",
+        "security": [
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "The currently authenticated user.",
@@ -352,6 +367,11 @@
           "Me"
         ],
         "description": "Returns one row per org the caller has a membership in, denormalised with the org and the caller's role.",
+        "security": [
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -631,6 +651,11 @@
             "name": "x-actor",
             "required": false,
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
           }
         ],
         "responses": {
@@ -975,6 +1000,14 @@
             "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "201": {
             "description": "Default Response",
@@ -1282,6 +1315,11 @@
             "name": "x-actor",
             "required": false,
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
           }
         ],
         "responses": {
@@ -1637,6 +1675,11 @@
             "name": "x-actor",
             "required": false,
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
           }
         ],
         "responses": {
@@ -1999,6 +2042,17 @@
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -2336,6 +2390,17 @@
             "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "201": {
             "description": "Default Response",
@@ -2665,6 +2730,17 @@
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -2961,6 +3037,11 @@
             "name": "idempotency-key",
             "required": true,
             "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
+          }
+        ],
+        "security": [
+          {
+            "userSession": []
           }
         ],
         "responses": {
@@ -3350,6 +3431,17 @@
             "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "201": {
             "description": "Default Response",
@@ -3627,6 +3719,17 @@
             "name": "x-actor",
             "required": false,
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
           }
         ],
         "responses": {
@@ -3964,6 +4067,17 @@
             "name": "x-actor",
             "required": false,
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
           }
         ],
         "responses": {
@@ -4416,6 +4530,17 @@
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "201": {
             "description": "Default Response",
@@ -4795,6 +4920,17 @@
             "name": "x-actor",
             "required": false,
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
           }
         ],
         "responses": {
@@ -5264,6 +5400,17 @@
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -5695,6 +5842,17 @@
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -6023,6 +6181,17 @@
             "name": "x-actor",
             "required": false,
             "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
           }
         ],
         "responses": {
@@ -6414,6 +6583,17 @@
             "example": 50
           }
         ],
+        "security": [
+          {
+            "masterApiKey": []
+          },
+          {
+            "tenantApiKey": []
+          },
+          {
+            "userSession": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -6644,6 +6824,12 @@
   "security": [
     {
       "masterApiKey": []
+    },
+    {
+      "tenantApiKey": []
+    },
+    {
+      "userSession": []
     }
   ],
   "tags": [
@@ -6678,8 +6864,315 @@
     {
       "name": "Health",
       "description": "Liveness and service metadata."
+    },
+    {
+      "name": "Webhooks",
+      "description": "Forward-looking event contract. MyHR will POST these payloads to a per-org delivery URL. Delivery, signing (HMAC-SHA256), and retries ship in a follow-up release."
     }
   ],
+  "x-webhooks": {
+    "employee.created": {
+      "post": {
+        "operationId": "webhook.employee.created",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Fired when an employee is created",
+        "description": "Emitted on every successful `POST /v1/employees`. The payload is the same shape returned by the create endpoint (minus encrypted-at-rest fields).",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "type",
+                  "createdAt",
+                  "orgId",
+                  "data"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Unique event id. Use as the deduplication key."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "employee.created"
+                    ],
+                    "description": "Event type. Always present; safe to switch on."
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "orgId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Tenant org the event applies to."
+                  },
+                  "data": {
+                    "type": "object"
+                  }
+                },
+                "example": {
+                  "id": "ev_01HXYZ0000000000000001",
+                  "type": "employee.created",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "data": {
+                    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "email": "ada@acme.com",
+                    "firstName": "Ada",
+                    "lastName": "Lovelace",
+                    "status": "active"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx is treated as success. Non-2xx triggers retry with exponential backoff (max 24h)."
+          }
+        },
+        "x-webhook-signature": {
+          "header": "Webhook-Signature",
+          "description": "`t=<unix-seconds>,v1=<hex-hmac-sha256>`. Compute HMAC-SHA256 of `<t>.<raw-body>` using the org's webhook signing secret (rotatable via the dashboard) and compare in constant time. Reject events with `t` more than 5 minutes in the past."
+        }
+      }
+    },
+    "employee.updated": {
+      "post": {
+        "operationId": "webhook.employee.updated",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Fired when an employee is updated",
+        "description": "Emitted after a successful `PATCH /v1/employees/{id}` whenever any persisted field changes. Re-emitted only if the post-write state differs.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "type",
+                  "createdAt",
+                  "orgId",
+                  "data"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Unique event id. Use as the deduplication key."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "employee.updated"
+                    ],
+                    "description": "Event type. Always present; safe to switch on."
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "orgId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Tenant org the event applies to."
+                  },
+                  "data": {
+                    "type": "object"
+                  }
+                },
+                "example": {
+                  "id": "ev_01HXYZ0000000000000001",
+                  "type": "employee.updated",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "data": {
+                    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "email": "ada@acme.com",
+                    "firstName": "Ada",
+                    "lastName": "Lovelace",
+                    "status": "on_leave"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx is treated as success. Non-2xx triggers retry with exponential backoff (max 24h)."
+          }
+        },
+        "x-webhook-signature": {
+          "header": "Webhook-Signature",
+          "description": "`t=<unix-seconds>,v1=<hex-hmac-sha256>`. Compute HMAC-SHA256 of `<t>.<raw-body>` using the org's webhook signing secret (rotatable via the dashboard) and compare in constant time. Reject events with `t` more than 5 minutes in the past."
+        }
+      }
+    },
+    "employee.deleted": {
+      "post": {
+        "operationId": "webhook.employee.deleted",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Fired when an employee is deleted (GDPR Art. 17)",
+        "description": "Emitted when an employee is soft-deleted. PII has already been redacted at this point — only `id`, `orgId`, and `deletedAt` are guaranteed.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "type",
+                  "createdAt",
+                  "orgId",
+                  "data"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Unique event id. Use as the deduplication key."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "employee.deleted"
+                    ],
+                    "description": "Event type. Always present; safe to switch on."
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "orgId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Tenant org the event applies to."
+                  },
+                  "data": {
+                    "type": "object"
+                  }
+                },
+                "example": {
+                  "id": "ev_01HXYZ0000000000000001",
+                  "type": "employee.deleted",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "data": {
+                    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "deletedAt": "2026-05-04T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx is treated as success. Non-2xx triggers retry with exponential backoff (max 24h)."
+          }
+        },
+        "x-webhook-signature": {
+          "header": "Webhook-Signature",
+          "description": "`t=<unix-seconds>,v1=<hex-hmac-sha256>`. Compute HMAC-SHA256 of `<t>.<raw-body>` using the org's webhook signing secret (rotatable via the dashboard) and compare in constant time. Reject events with `t` more than 5 minutes in the past."
+        }
+      }
+    },
+    "document.expiring": {
+      "post": {
+        "operationId": "webhook.document.expiring",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Fired ahead of a document's expiry",
+        "description": "Emitted at 30 / 14 / 7 / 1 days before `document.expiresAt` so 1tap can notify the employee or HR. Each window fires exactly once per document.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "type",
+                  "createdAt",
+                  "orgId",
+                  "data"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Unique event id. Use as the deduplication key."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "document.expiring"
+                    ],
+                    "description": "Event type. Always present; safe to switch on."
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "orgId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Tenant org the event applies to."
+                  },
+                  "data": {
+                    "type": "object"
+                  }
+                },
+                "example": {
+                  "id": "ev_01HXYZ0000000000000001",
+                  "type": "document.expiring",
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "orgId": "11111111-2222-3333-4444-555555555555",
+                  "data": {
+                    "documentId": "dddddddd-eeee-ffff-aaaa-bbbbbbbbbbbb",
+                    "employeeId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "kind": "visa",
+                    "expiresAt": "2026-06-04T00:00:00.000Z",
+                    "daysUntilExpiry": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx is treated as success. Non-2xx triggers retry with exponential backoff (max 24h)."
+          }
+        },
+        "x-webhook-signature": {
+          "header": "Webhook-Signature",
+          "description": "`t=<unix-seconds>,v1=<hex-hmac-sha256>`. Compute HMAC-SHA256 of `<t>.<raw-body>` using the org's webhook signing secret (rotatable via the dashboard) and compare in constant time. Reject events with `t` more than 5 minutes in the past."
+        }
+      }
+    }
+  },
   "x-tagGroups": [
     {
       "name": "Public API",
@@ -6695,6 +7188,12 @@
       "tags": [
         "ApiKeys",
         "Me"
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "tags": [
+        "Webhooks"
       ]
     },
     {
