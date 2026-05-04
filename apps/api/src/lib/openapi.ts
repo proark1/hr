@@ -77,3 +77,32 @@ export const masterReadHeaders = ActorHeader;
 
 /** Headers for master-only write endpoints. */
 export const masterWriteHeaders = IdempotencyHeader.merge(ActorHeader);
+
+/**
+ * Headers for endpoints that accept multiple caller types (master,
+ * tenant_key, user). Master callers send `X-Tenant-Id`; user callers send
+ * `X-Org-Id`; tenant_key callers don't need either (it's derived from the
+ * key). All three are documented as optional so the schema validates.
+ */
+const OrgIdHeader = z.object({
+  "x-org-id": z
+    .string()
+    .uuid()
+    .optional()
+    .describe("Tenant org id — required for end-user (Better Auth) callers."),
+});
+
+const OptionalTenantHeader = z.object({
+  "x-tenant-id": z
+    .string()
+    .uuid()
+    .optional()
+    .describe("Tenant org id — required for master callers, ignored for tenant-key + user callers."),
+});
+
+export const orgReadHeaders = OptionalTenantHeader.merge(OrgIdHeader).merge(ActorHeader);
+export const orgWriteHeaders = orgReadHeaders.merge(IdempotencyHeader);
+
+/** Headers for user-only endpoints (e.g. /v1/me, /v1/superadmin/*). */
+export const userReadHeaders = z.object({});
+export const userWriteHeaders = IdempotencyHeader;

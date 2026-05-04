@@ -7,6 +7,7 @@ import {
   errorResponses,
   masterReadHeaders,
   masterWriteHeaders,
+  orgWriteHeaders,
 } from "../lib/openapi.js";
 
 const PageQuery = z.object({
@@ -55,24 +56,38 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   );
 
-  // Create org — master only. 1tap calls this to provision a startup.
+  // Create org — master OR end-user. When a user creates an org, they
+  // become its `owner` in the same transaction. 1tap-provisioned orgs
+  // get no membership rows.
   app.post(
     "",
     {
       schema: {
         tags: ["Orgs"],
         operationId: "createOrg",
-        summary: "Create org (master only)",
-        description: "Provisions a new tenant org. Called by 1tap when onboarding a startup.",
-        headers: masterWriteHeaders,
+        summary: "Create org",
+        description:
+          "Provisions a new tenant org. Master callers (1tap) provision on behalf of a startup. End-user callers create their own org and become `owner`.",
+        headers: orgWriteHeaders,
         body: OrgCreate,
         response: { 201: Org, ...errorResponses(400, 401, 403, 409, 500) },
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"] },
     },
     async (req, reply) => {
-      const created = await withTenant(app.prisma, { orgId: null, isMaster: true }, (tx) =>
-        tx.org.create({ data: req.body }),
+      const caller = req.caller;
+      const created = await withTenant(
+        app.prisma,
+        { orgId: null, isMaster: true, userId: caller.type === "user" ? caller.userId : null },
+        async (tx) => {
+          const org = await tx.org.create({ data: req.body });
+          if (caller.type === "user") {
+            await tx.orgMembership.create({
+              data: { orgId: org.id, userId: caller.userId, role: "owner" },
+            });
+          }
+          return org;
+        },
       );
       req.auditAction = "org.created";
       req.auditResource = `org:${created.id}`;
