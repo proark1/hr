@@ -1,0 +1,176 @@
+// MyHR database schema.
+//
+// Multi-tenant: every personal-data table carries org_id and is protected by
+// Postgres Row-Level Security. Application connects as a non-owner role; the
+// tenant middleware sets `app.current_org_id` (and `app.is_master`) at the
+// start of every transaction.
+//
+// See migrations/<timestamp>_init/migration.sql for the RLS policies.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DIRECT_DATABASE_URL")
+  extensions        = [pgcrypto, citext]
+}
+
+// -- Tenants -----------------------------------------------------------------
+
+enum OrgRegion {
+  eu
+  us
+}
+
+enum OrgStatus {
+  active
+  suspended
+  deleted
+}
+
+model Org {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  region    OrgRegion  @default(eu)
+  status    OrgStatus  @default(active)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  deletedAt DateTime?  @map("deleted_at")
+
+  employees   Employee[]
+  apiKeys     ApiKey[]
+  auditEvents AuditEvent[]
+  webhooks    WebhookEndpoint[]
+
+  @@map("orgs")
+}
+
+// -- Auth (master + tenant-scoped keys; v1 ships master only) ----------------
+
+enum ApiKeyScope {
+  master
+  tenant
+}
+
+model ApiKey {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope       ApiKeyScope
+  orgId       String?      @map("org_id") @db.Uuid
+  name        String
+  prefix      String       @unique // e.g. "mh_live_abcd" (first 12 chars, for display + lookup)
+  hash        String       // sha256(secret), hex
+  lastUsedAt  DateTime?    @map("last_used_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  revokedAt   DateTime?    @map("revoked_at")
+
+  org Org? @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@map("api_keys")
+}
+
+// -- Employees ---------------------------------------------------------------
+
+enum EmployeeStatus {
+  onboarding
+  active
+  on_leave
+  terminated
+}
+
+enum EmployeeCountry {
+  us
+  de
+}
+
+model Employee {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId         String          @map("org_id") @db.Uuid
+  externalId    String?         @map("external_id") // 1tap's stable ID for this person
+  email         String          @db.Citext
+  firstName     String          @map("first_name")
+  lastName      String          @map("last_name")
+  preferredName String?         @map("preferred_name")
+  jobTitle      String?         @map("job_title")
+  department    String?
+  managerId     String?         @map("manager_id") @db.Uuid
+  country       EmployeeCountry
+  startDate     DateTime        @map("start_date") @db.Date
+  endDate       DateTime?       @map("end_date") @db.Date
+  status        EmployeeStatus  @default(onboarding)
+  // Encrypted blob (libsodium sealed box) for tax IDs, IBAN etc. Schema-less by design.
+  sensitive     Bytes?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  deletedAt     DateTime?       @map("deleted_at")
+
+  org      Org        @relation(fields: [orgId], references: [id])
+  manager  Employee?  @relation("EmployeeManager", fields: [managerId], references: [id])
+  reports  Employee[] @relation("EmployeeManager")
+
+  @@unique([orgId, email])
+  @@unique([orgId, externalId])
+  @@index([orgId, status])
+  @@index([orgId, managerId])
+  @@map("employees")
+}
+
+// -- Audit log ---------------------------------------------------------------
+
+model AuditEvent {
+  id         BigInt   @id @default(autoincrement())
+  orgId      String?  @map("org_id") @db.Uuid
+  actorType  String   @map("actor_type") // "master" | "tenant" | "system"
+  actorId    String?  @map("actor_id")   // 1tap user id from X-Actor header
+  actorEmail String?  @map("actor_email")
+  action     String   // "employee.created", "employee.read", ...
+  resource   String?  // "employee:<uuid>"
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  org Org? @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_events")
+}
+
+// -- Idempotency -------------------------------------------------------------
+
+model IdempotencyKey {
+  key          String   @id
+  orgId        String?  @map("org_id") @db.Uuid
+  method       String
+  path         String
+  requestHash  String   @map("request_hash")
+  statusCode   Int      @map("status_code")
+  responseBody Json     @map("response_body")
+  createdAt    DateTime @default(now()) @map("created_at")
+  expiresAt    DateTime @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+// -- Webhooks (registration only; delivery wired in a later PR) --------------
+
+model WebhookEndpoint {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId      String?  @map("org_id") @db.Uuid // null = master-level (cross-tenant)
+  url        String
+  events     String[] // e.g. ["employee.created", "leave.approved"]
+  secret     String   // hmac signing secret for this endpoint
+  disabledAt DateTime? @map("disabled_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  org Org? @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@map("webhook_endpoints")
+}
