@@ -8,6 +8,11 @@ import {
 } from "@myhr/types";
 import { withTenant, type Prisma } from "@myhr/db";
 import { Errors, ApiError } from "../errors.js";
+import {
+  errorResponses,
+  tenantReadHeaders,
+  tenantWriteHeaders,
+} from "../lib/openapi.js";
 
 const ListResponse = z.object({
   items: z.array(Employee),
@@ -55,8 +60,9 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
         operationId: "listEmployees",
         summary: "List employees",
         description: "Returns a cursor-paginated list of employees in the current tenant.",
+        headers: tenantReadHeaders,
         querystring: EmployeeListQuery,
-        response: { 200: ListResponse },
+        response: { 200: ListResponse, ...errorResponses(400, 401, 403, 500) },
       },
       config: { requireTenant: true },
     },
@@ -98,8 +104,9 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
         operationId: "createEmployee",
         summary: "Create employee",
         description: "Creates a new employee in the current tenant.",
+        headers: tenantWriteHeaders,
         body: EmployeeCreate,
-        response: { 201: Employee },
+        response: { 201: Employee, ...errorResponses(400, 401, 403, 409, 500) },
       },
       config: { requireTenant: true },
     },
@@ -147,8 +154,9 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
         operationId: "getEmployee",
         summary: "Get employee",
         description: "Returns a single employee by id, scoped to the current tenant.",
+        headers: tenantReadHeaders,
         params: z.object({ id: z.string().uuid() }),
-        response: { 200: Employee },
+        response: { 200: Employee, ...errorResponses(400, 401, 403, 404, 500) },
       },
       config: { requireTenant: true },
     },
@@ -176,9 +184,10 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
         operationId: "updateEmployee",
         summary: "Update employee",
         description: "Partially updates an employee. Only provided fields are changed.",
+        headers: tenantWriteHeaders,
         params: z.object({ id: z.string().uuid() }),
         body: EmployeeUpdate,
-        response: { 200: Employee },
+        response: { 200: Employee, ...errorResponses(400, 401, 403, 404, 409, 500) },
       },
       config: { requireTenant: true },
     },
@@ -234,12 +243,14 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "Delete employee (GDPR Art. 17)",
         description:
           "Soft-deletes an employee and anonymizes PII in place. A scheduled job performs hard erasure after retention deadlines pass.",
+        headers: tenantWriteHeaders,
         params: z.object({ id: z.string().uuid() }),
         response: {
           200: z.object({
             id: z.string().uuid(),
             deletedAt: z.string().datetime(),
           }),
+          ...errorResponses(400, 401, 403, 404, 409, 500),
         },
       },
       config: { requireTenant: true },
@@ -283,8 +294,9 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "Export employee data (GDPR Art. 15)",
         description:
           "Returns the full employee record. A follow-up will also bundle contracts and documents into a zip.",
+        headers: tenantReadHeaders,
         params: z.object({ id: z.string().uuid() }),
-        response: { 200: ExportResponse },
+        response: { 200: ExportResponse, ...errorResponses(400, 401, 403, 404, 500) },
       },
       config: { requireTenant: true },
     },

@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { errorResponses } from "../lib/openapi.js";
 
 const healthRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
@@ -11,7 +12,7 @@ const healthRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "Liveness + DB readiness probe",
         description: "Returns ok when the database is reachable.",
         security: [],
-        response: { 200: z.object({ ok: z.boolean() }) },
+        response: { 200: z.object({ ok: z.boolean() }), ...errorResponses(500) },
       },
     },
     async () => {
