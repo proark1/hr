@@ -71,6 +71,11 @@ export async function buildServer() {
         version: "0.0.1",
       },
       servers: [{ url: "https://api.myhr.example", description: "production" }],
+      tags: [
+        { name: "Employees", description: "Employee records scoped to a tenant org." },
+        { name: "Orgs", description: "Tenant orgs. Master-only endpoints used by 1tap to provision startups." },
+        { name: "Health", description: "Liveness and service metadata." },
+      ],
       components: {
         securitySchemes: {
           masterApiKey: {

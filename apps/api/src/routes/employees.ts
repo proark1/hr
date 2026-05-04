@@ -51,6 +51,10 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     "/",
     {
       schema: {
+        tags: ["Employees"],
+        operationId: "listEmployees",
+        summary: "List employees",
+        description: "Returns a cursor-paginated list of employees in the current tenant.",
         querystring: EmployeeListQuery,
         response: { 200: ListResponse },
       },
@@ -90,6 +94,10 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     "/",
     {
       schema: {
+        tags: ["Employees"],
+        operationId: "createEmployee",
+        summary: "Create employee",
+        description: "Creates a new employee in the current tenant.",
         body: EmployeeCreate,
         response: { 201: Employee },
       },
@@ -135,6 +143,10 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id",
     {
       schema: {
+        tags: ["Employees"],
+        operationId: "getEmployee",
+        summary: "Get employee",
+        description: "Returns a single employee by id, scoped to the current tenant.",
         params: z.object({ id: z.string().uuid() }),
         response: { 200: Employee },
       },
@@ -160,6 +172,10 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id",
     {
       schema: {
+        tags: ["Employees"],
+        operationId: "updateEmployee",
+        summary: "Update employee",
+        description: "Partially updates an employee. Only provided fields are changed.",
         params: z.object({ id: z.string().uuid() }),
         body: EmployeeUpdate,
         response: { 200: Employee },
@@ -213,6 +229,11 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id",
     {
       schema: {
+        tags: ["Employees"],
+        operationId: "deleteEmployee",
+        summary: "Delete employee (GDPR Art. 17)",
+        description:
+          "Soft-deletes an employee and anonymizes PII in place. A scheduled job performs hard erasure after retention deadlines pass.",
         params: z.object({ id: z.string().uuid() }),
         response: {
           200: z.object({
@@ -257,6 +278,11 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id/export",
     {
       schema: {
+        tags: ["Employees"],
+        operationId: "exportEmployee",
+        summary: "Export employee data (GDPR Art. 15)",
+        description:
+          "Returns the full employee record. A follow-up will also bundle contracts and documents into a zip.",
         params: z.object({ id: z.string().uuid() }),
         response: { 200: ExportResponse },
       },

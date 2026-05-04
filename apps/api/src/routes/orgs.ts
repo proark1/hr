@@ -20,6 +20,10 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
     "/",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "listOrgs",
+        summary: "List orgs (master only)",
+        description: "Lists all tenant orgs. Restricted to the master integrator (1tap).",
         querystring: PageQuery,
         response: { 200: ListResponse },
       },
@@ -50,6 +54,10 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
     "/",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "createOrg",
+        summary: "Create org (master only)",
+        description: "Provisions a new tenant org. Called by 1tap when onboarding a startup.",
         body: OrgCreate,
         response: { 201: Org },
       },
@@ -72,6 +80,10 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "getOrg",
+        summary: "Get org (master only)",
+        description: "Returns a single tenant org by id.",
         params: z.object({ id: z.string().uuid() }),
         response: { 200: Org },
       },
@@ -92,6 +104,10 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
     "/:id",
     {
       schema: {
+        tags: ["Orgs"],
+        operationId: "updateOrg",
+        summary: "Update org (master only)",
+        description: "Partially updates a tenant org.",
         params: z.object({ id: z.string().uuid() }),
         body: OrgUpdate,
         response: { 200: Org },
