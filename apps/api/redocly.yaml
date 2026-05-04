@@ -1,0 +1,8 @@
+extends:
+  - recommended
+
+rules:
+  # Private B2B API; no public license needed.
+  info-license: off
+  # Health endpoints are public liveness probes — no auth, no 4xx.
+  operation-4xx-response: off

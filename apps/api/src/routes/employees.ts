@@ -53,7 +53,7 @@ async function assertManagerInTenant(
 const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
   // List employees in the current tenant.
   app.get(
-    "/",
+    "",
     {
       schema: {
         tags: ["Employees"],
@@ -97,7 +97,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // Create employee.
   app.post(
-    "/",
+    "",
     {
       schema: {
         tags: ["Employees"],

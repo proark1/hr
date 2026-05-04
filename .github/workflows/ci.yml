@@ -21,3 +21,7 @@ jobs:
       - run: pnpm --filter @myhr/db generate
       - run: pnpm --filter "@myhr/api^..." build
       - run: pnpm typecheck
+      - name: Verify OpenAPI snapshot is up to date
+        run: pnpm --filter @myhr/api openapi:check
+      - name: Lint OpenAPI spec
+        run: pnpm --filter @myhr/api openapi:lint

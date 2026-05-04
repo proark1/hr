@@ -22,7 +22,7 @@ const ListResponse = z.object({
 const orgRoutes: FastifyPluginAsyncZod = async (app) => {
   // List orgs — master only.
   app.get(
-    "/",
+    "",
     {
       schema: {
         tags: ["Orgs"],
@@ -57,7 +57,7 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // Create org — master only. 1tap calls this to provision a startup.
   app.post(
-    "/",
+    "",
     {
       schema: {
         tags: ["Orgs"],
