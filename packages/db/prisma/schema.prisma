@@ -109,9 +109,14 @@ model Employee {
   deletedAt     DateTime?       @map("deleted_at")
 
   org      Org        @relation(fields: [orgId], references: [id])
-  manager  Employee?  @relation("EmployeeManager", fields: [managerId], references: [id])
+  // Composite FK (managerId, orgId) → (id, orgId). Enforced at the DB level
+  // so a manager cannot reference an employee from a different tenant — FK
+  // checks bypass RLS, so the orgId in the FK is the only place this is
+  // enforced at the storage layer.
+  manager  Employee?  @relation("EmployeeManager", fields: [managerId, orgId], references: [id, orgId])
   reports  Employee[] @relation("EmployeeManager")
 
+  @@unique([id, orgId])
   @@unique([orgId, email])
   @@unique([orgId, externalId])
   @@index([orgId, status])

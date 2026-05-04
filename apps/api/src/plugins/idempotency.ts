@@ -35,6 +35,14 @@ function hashRequest(method: string, path: string, body: unknown): string {
  * key per logical request so retries are safe. We store the response keyed by
  * (key) and replay it on duplicates with the same body. Different body for
  * the same key returns 409.
+ *
+ * Known limitation: two concurrent requests with the same key both pass the
+ * existence check, both run handlers, and only the duplicate INSERT in
+ * onSend is caught. This means double side-effects (e.g. two employees
+ * created). Fix planned for the next PR via an atomic claim
+ * (`INSERT ... ON CONFLICT DO NOTHING RETURNING ...`) inside preHandler so
+ * only the first concurrent request runs the handler; the rest wait on the
+ * row and replay the cached response.
  */
 export default fp(async (app) => {
   app.addHook("preHandler", async (req, reply) => {

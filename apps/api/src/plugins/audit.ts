@@ -29,8 +29,13 @@ export default fp(async (app) => {
   app.addHook("onResponse", async (req, reply) => {
     const path = reqPath(req.url);
     if (SKIP_PATHS.has(path) || path.startsWith("/openapi")) return;
-    if (!req.caller) return;
     if (reply.statusCode >= 500) return;
+
+    // Log anonymous requests too — auth failures and unauthenticated probes
+    // are useful security signal. We can't tag them with a tenant.
+    const isAnonymous = !req.caller;
+    const tenantId = isAnonymous ? null : (req.tenantId ?? null);
+    const actorType = req.caller?.type ?? "anonymous";
 
     const action =
       req.auditAction ?? `${req.method.toLowerCase()} ${req.routeOptions?.url ?? path}`;
@@ -38,12 +43,12 @@ export default fp(async (app) => {
     try {
       await withTenant(
         app.prisma,
-        { orgId: req.tenantId ?? null, isMaster: true },
+        { orgId: tenantId, isMaster: true },
         (tx) =>
           tx.auditEvent.create({
             data: {
-              orgId: req.tenantId ?? null,
-              actorType: req.caller.type,
+              orgId: tenantId,
+              actorType,
               actorId: req.actor?.id ?? null,
               actorEmail: req.actor?.email ?? null,
               action,

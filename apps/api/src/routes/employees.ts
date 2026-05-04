@@ -6,8 +6,8 @@ import {
   EmployeeUpdate,
   EmployeeListQuery,
 } from "@myhr/types";
-import { withTenant } from "@myhr/db";
-import { Errors } from "../errors.js";
+import { withTenant, type Prisma } from "@myhr/db";
+import { Errors, ApiError } from "../errors.js";
 
 const ListResponse = z.object({
   items: z.array(Employee),
@@ -18,6 +18,32 @@ const ExportResponse = z.object({
   employee: Employee,
   exportedAt: z.string().datetime(),
 });
+
+/** Map Prisma write errors to ApiError. P2002 = unique constraint violation. */
+function mapWriteError(err: unknown): never {
+  if (
+    typeof err === "object" &&
+    err &&
+    "code" in err &&
+    (err as { code: string }).code === "P2002"
+  ) {
+    throw Errors.conflict("An employee with that email or external_id already exists");
+  }
+  throw err;
+}
+
+/** Verify a manager exists in the current tenant. RLS already scopes the
+ *  query to this tenant, so a managerId from another org returns null. */
+async function assertManagerInTenant(
+  tx: Prisma.TransactionClient,
+  managerId: string,
+): Promise<void> {
+  const m = await tx.employee.findFirst({
+    where: { id: managerId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!m) throw Errors.badRequest("managerId does not reference an employee in this tenant");
+}
 
 const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
   // List employees in the current tenant.
@@ -73,8 +99,9 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
       const created = await withTenant(
         app.prisma,
         { orgId: req.tenantId!, isMaster: false },
-        (tx) =>
-          tx.employee.create({
+        async (tx) => {
+          if (req.body.managerId) await assertManagerInTenant(tx, req.body.managerId);
+          return tx.employee.create({
             data: {
               orgId: req.tenantId!,
               email: req.body.email,
@@ -90,17 +117,11 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
               ...(req.body.endDate ? { endDate: new Date(req.body.endDate) } : {}),
               ...(req.body.status ? { status: req.body.status } : {}),
             },
-          }),
+          });
+        },
       ).catch((err: unknown) => {
-        if (
-          typeof err === "object" &&
-          err &&
-          "code" in err &&
-          (err as { code: string }).code === "P2002"
-        ) {
-          throw Errors.conflict("An employee with that email or external_id already exists");
-        }
-        throw err;
+        if (err instanceof ApiError) throw err;
+        mapWriteError(err);
       });
       req.auditAction = "employee.created";
       req.auditResource = `employee:${created.id}`;
@@ -169,9 +190,15 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
             where: { id: req.params.id, orgId: req.tenantId!, deletedAt: null },
           });
           if (!existing) throw Errors.notFound();
+          if (typeof data.managerId === "string") {
+            await assertManagerInTenant(tx, data.managerId);
+          }
           return tx.employee.update({ where: { id: existing.id }, data });
         },
-      );
+      ).catch((err: unknown) => {
+        if (err instanceof ApiError) throw err;
+        mapWriteError(err);
+      });
       req.auditAction = "employee.updated";
       req.auditResource = `employee:${updated.id}`;
       return serializeEmployee(updated);

@@ -110,7 +110,7 @@ CREATE TABLE "employees" (
   "preferred_name" text,
   "job_title"      text,
   "department"     text,
-  "manager_id"     uuid REFERENCES "employees"("id") ON DELETE SET NULL,
+  "manager_id"     uuid,
   "country"        "EmployeeCountry" NOT NULL,
   "start_date"     date NOT NULL,
   "end_date"       date,
@@ -120,6 +120,17 @@ CREATE TABLE "employees" (
   "updated_at"     timestamptz NOT NULL DEFAULT now(),
   "deleted_at"     timestamptz
 );
+
+-- Composite unique enables a composite FK so manager_id is constrained to
+-- the same tenant. Postgres bypasses RLS for FK checks, so a tenant-scoped
+-- FK is the only way to prevent cross-tenant manager references at the DB.
+ALTER TABLE "employees" ADD CONSTRAINT "employees_id_org_uq" UNIQUE ("id", "org_id");
+ALTER TABLE "employees"
+  ADD CONSTRAINT "employees_manager_fkey"
+  FOREIGN KEY ("manager_id", "org_id")
+  REFERENCES "employees" ("id", "org_id")
+  ON DELETE SET NULL;
+
 CREATE UNIQUE INDEX "employees_org_email_uq" ON "employees"("org_id", "email");
 CREATE UNIQUE INDEX "employees_org_external_uq" ON "employees"("org_id", "external_id") WHERE "external_id" IS NOT NULL;
 CREATE INDEX "employees_org_status_idx" ON "employees"("org_id", "status");
