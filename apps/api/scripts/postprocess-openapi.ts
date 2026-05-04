@@ -29,6 +29,14 @@ type PathItem = Record<string, Operation | unknown>;
 const HTTP_METHODS = ["get", "post", "patch", "put", "delete"] as const;
 type Method = (typeof HTTP_METHODS)[number];
 
+/**
+ * Operations whose handler responds with `204 No Content`. fastify-zod can't
+ * model a body-less response, so we declare it here and inject a content-less
+ * 204 entry into the spec. Any operationId in this set must NOT also declare a
+ * 2xx response in its route schema.
+ */
+const NO_CONTENT_OPERATIONS = new Set<string>(["deleteWebhookEndpoint"]);
+
 const TAG_GROUPS: Array<{ name: string; tags: string[] }> = [
   { name: "Public API", tags: ["Employees", "Orgs", "Members", "Invitations"] },
   { name: "Admin", tags: ["ApiKeys", "Me"] },
@@ -283,6 +291,11 @@ export function postprocess(spec: Json): Json {
 
       const opId = op.operationId;
       const fixture: OperationFixture = (opId && FIXTURES[opId]) || {};
+
+      if (opId && NO_CONTENT_OPERATIONS.has(opId)) {
+        op.responses = op.responses ?? {};
+        op.responses["204"] = { description: "Deleted. No response body." };
+      }
 
       applyExamples(op, fixture);
       applyCodeSamples({ baseUrl, method, path, op, fixture });
