@@ -247,6 +247,13 @@ export const ERROR_EXAMPLES: Record<number, unknown> = {
       message: "An employee with that email or external_id already exists",
     },
   },
+  429: {
+    error: {
+      code: "rate_limited",
+      message: "Rate limit exceeded. Retry after 6s.",
+      details: { retryAfterSec: 6 },
+    },
+  },
   500: {
     error: { code: "internal_error", message: "Internal server error" },
   },

@@ -14,6 +14,7 @@ import { ApiError } from "./errors.js";
 import { apiDescription } from "./lib/api-description.js";
 import prismaPlugin from "./plugins/prisma.js";
 import authPlugin from "./plugins/auth/index.js";
+import rateLimitPlugin from "./plugins/rate-limit.js";
 import tenantPlugin from "./plugins/tenant.js";
 import idempotencyPlugin from "./plugins/idempotency.js";
 import auditPlugin from "./plugins/audit.js";
@@ -156,6 +157,7 @@ export async function buildServer() {
 
   await app.register(prismaPlugin);
   await app.register(authPlugin);
+  await app.register(rateLimitPlugin);
   await app.register(tenantPlugin);
   await app.register(idempotencyPlugin);
   await app.register(auditPlugin);
