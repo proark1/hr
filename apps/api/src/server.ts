@@ -5,7 +5,7 @@ import { serializerCompiler, validatorCompiler, ZodTypeProvider } from "fastify-
 import { env } from "./env.js";
 import { ApiError } from "./errors.js";
 import prismaPlugin from "./plugins/prisma.js";
-import authPlugin from "./plugins/auth.js";
+import authPlugin from "./plugins/auth/index.js";
 import tenantPlugin from "./plugins/tenant.js";
 import idempotencyPlugin from "./plugins/idempotency.js";
 import auditPlugin from "./plugins/audit.js";
