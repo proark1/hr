@@ -9,6 +9,13 @@ const Env = z.object({
   MASTER_API_KEY: z.string().min(16),
   FIELD_ENCRYPTION_KEY: z.string().optional(),
   WEBHOOK_SIGNING_SECRET: z.string().optional(),
+  // Better Auth — only required once we accept end-user logins. The user
+  // strategy short-circuits with 401 if these aren't set, so the API runs
+  // happily with master + tenant-key callers only.
+  BETTER_AUTH_SECRET: z.string().min(16).optional(),
+  // Public origin of the web app (Vercel). Used as Better Auth's baseURL
+  // and trustedOrigins. Optional in dev.
+  WEB_APP_URL: z.string().url().optional(),
 });
 
 export const env = Env.parse(process.env);
