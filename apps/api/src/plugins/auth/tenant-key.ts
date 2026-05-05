@@ -4,6 +4,17 @@ import { sha256, timingSafeEqual } from "./shared.js";
 
 const PREFIX_LEN = 12;
 
+/** Don't write `last_used_at` more often than this per key. Under load every
+ *  request would otherwise row-lock the same api_keys row and fan out WAL.
+ *  60 seconds gives a useful "is this key alive" signal without the cost. */
+const LAST_USED_THROTTLE_MS = 60 * 1000;
+
+/** Per-process cache of the last write timestamp we issued for each key id.
+ *  Process-local is fine here — it's not a correctness invariant, just a
+ *  best-effort throttle. After a restart we'll write once on first use,
+ *  which is exactly what we want anyway. */
+const lastUsedWrites = new Map<string, number>();
+
 /**
  * Try the tenant-scoped API key strategy.
  *
@@ -22,8 +33,8 @@ export async function tryTenantKey(
   if (token.length < PREFIX_LEN + 1) return null;
   const prefix = token.slice(0, PREFIX_LEN);
 
-  // Lookup + lastUsedAt update in a single transaction to halve the
-  // set_config round-trips and avoid a second pooled connection.
+  // Lookup + (throttled) lastUsedAt update in a single transaction to halve
+  // the set_config round-trips and avoid a second pooled connection.
   const apiKey = await withTenant(
     prisma,
     { orgId: null, isMaster: true },
@@ -34,10 +45,16 @@ export async function tryTenantKey(
       });
       if (!key || !key.orgId) return null;
       if (!timingSafeEqual(key.hash, sha256(token))) return null;
-      await tx.apiKey.update({
-        where: { id: key.id },
-        data: { lastUsedAt: new Date() },
-      });
+
+      const now = Date.now();
+      const lastWrite = lastUsedWrites.get(key.id) ?? 0;
+      if (now - lastWrite >= LAST_USED_THROTTLE_MS) {
+        lastUsedWrites.set(key.id, now);
+        await tx.apiKey.update({
+          where: { id: key.id },
+          data: { lastUsedAt: new Date(now) },
+        });
+      }
       return key;
     },
   );

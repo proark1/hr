@@ -11,6 +11,21 @@ import {
 
 import { env } from "./env.js";
 import { ApiError } from "./errors.js";
+
+const GENERIC_4XX_MESSAGES: Record<number, string> = {
+  400: "Bad request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not found",
+  405: "Method not allowed",
+  406: "Not acceptable",
+  409: "Conflict",
+  410: "Gone",
+  413: "Payload too large",
+  415: "Unsupported media type",
+  422: "Unprocessable entity",
+  429: "Too many requests",
+};
 import { apiDescription } from "./lib/api-description.js";
 import prismaPlugin from "./plugins/prisma.js";
 import authPlugin from "./plugins/auth/index.js";
@@ -59,9 +74,34 @@ export async function buildServer() {
         error: { code: err.code, message: err.message, details: err.details },
       });
     }
+    // Fastify validation failures (Zod / fastify-type-provider-zod) carry
+    // statusCode 400 and a structured `validation` field. Surface the
+    // validation details so clients can react, but normalize the code.
+    if (
+      "statusCode" in err &&
+      typeof err.statusCode === "number" &&
+      err.statusCode === 400 &&
+      "validation" in err
+    ) {
+      return reply.code(400).send({
+        error: {
+          code: "bad_request",
+          message: "Request validation failed",
+          details: (err as { validation: unknown }).validation,
+        },
+      });
+    }
+    // Other 4xx — DON'T echo err.message verbatim. Prisma's known-error
+    // messages contain table/column names and parameter values that we
+    // shouldn't leak to clients. Routes are expected to map domain errors
+    // to ApiError; anything else gets a generic message.
     if ("statusCode" in err && typeof err.statusCode === "number" && err.statusCode < 500) {
+      req.log.warn({ err }, "unmapped 4xx error");
       return reply.code(err.statusCode).send({
-        error: { code: err.code ?? "bad_request", message: err.message },
+        error: {
+          code: "bad_request",
+          message: GENERIC_4XX_MESSAGES[err.statusCode] ?? "Bad request",
+        },
       });
     }
     req.log.error({ err }, "unhandled error");

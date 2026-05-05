@@ -7,8 +7,9 @@
  * Long-term steady state is RATE_LIMIT_PER_MINUTE requests/minute. Short
  * spikes up to `capacity` are absorbed without 429-ing.
  *
- * Storage is in-process (a `Map` of buckets). On Railway we run a single
- * API instance — fine. If we ever scale horizontally, swap this for Redis
+ * Storage is in-process (a `Map` of buckets). `railway.json` pins
+ * `numReplicas: 1` so this is correct in prod — if anyone bumps that,
+ * swap this plugin for a Redis-backed bucket before scaling out
  * (the bucket interface is intentionally tiny so the rewrite is local).
  *
  * Public routes (`/`, `/healthz`, `/openapi*`) are skipped — they don't
