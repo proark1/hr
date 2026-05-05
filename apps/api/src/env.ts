@@ -1,4 +1,16 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { z } from "zod";
+
+// In dev, transparently load the repo-root .env so `pnpm api:dev` works
+// without requiring the operator to source the file. Production runtimes
+// (Railway, Vercel) inject env vars natively and won't have a .env on disk.
+for (const candidate of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.env")]) {
+  if (existsSync(candidate)) {
+    process.loadEnvFile(candidate);
+    break;
+  }
+}
 
 const Env = z
   .object({
