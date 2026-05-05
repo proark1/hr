@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "predev": "pnpm --filter \"@myhr/web^...\" build",
+    "prebuild": "pnpm --filter \"@myhr/web^...\" build",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
