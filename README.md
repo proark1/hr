@@ -84,7 +84,7 @@ cp .env.example .env
 pnpm db:generate
 pnpm db:migrate
 
-# API picks up the root .env automatically in dev (via tsx --env-file-if-exists).
+# API picks up the root .env automatically in dev (via internal logic in env.ts).
 pnpm api:dev
 
 # Next.js looks for env in apps/web/.env.local — symlink the root .env once:
