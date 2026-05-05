@@ -37,14 +37,18 @@ function mapWriteError(err: unknown): never {
   throw err;
 }
 
-/** Verify a manager exists in the current tenant. RLS already scopes the
- *  query to this tenant, so a managerId from another org returns null. */
+/** Verify a manager exists in the current tenant. RLS scopes the query to
+ *  this tenant for non-master callers, but we also pass `orgId` explicitly
+ *  so a master-mode transaction can't accidentally accept a cross-tenant
+ *  managerId. (FK on employees(manager_id, org_id) is the storage-layer
+ *  guarantee; this is a defense-in-depth check at the app layer.) */
 async function assertManagerInTenant(
   tx: Prisma.TransactionClient,
   managerId: string,
+  orgId: string,
 ): Promise<void> {
   const m = await tx.employee.findFirst({
-    where: { id: managerId, deletedAt: null },
+    where: { id: managerId, orgId, deletedAt: null },
     select: { id: true },
   });
   if (!m) throw Errors.badRequest("managerId does not reference an employee in this tenant");
@@ -115,7 +119,9 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
         app.prisma,
         { orgId: req.tenantId!, isMaster: false },
         async (tx) => {
-          if (req.body.managerId) await assertManagerInTenant(tx, req.body.managerId);
+          if (req.body.managerId) {
+            await assertManagerInTenant(tx, req.body.managerId, req.tenantId!);
+          }
           return tx.employee.create({
             data: {
               orgId: req.tenantId!,
@@ -222,7 +228,7 @@ const employeeRoutes: FastifyPluginAsyncZod = async (app) => {
           });
           if (!existing) throw Errors.notFound();
           if (typeof data.managerId === "string") {
-            await assertManagerInTenant(tx, data.managerId);
+            await assertManagerInTenant(tx, data.managerId, req.tenantId!);
           }
           return tx.employee.update({ where: { id: existing.id }, data });
         },

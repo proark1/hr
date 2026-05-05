@@ -81,7 +81,7 @@ async function deliver(args: {
   deliveryId: string;
   maxAttempts: number;
 }): Promise<void> {
-  const { prisma, log, deliveryId, maxAttempts } = args;
+  const { prisma, log, deliveryId, maxAttempts: workerMaxAttempts } = args;
 
   const delivery = await prisma.webhookDelivery.findUnique({
     where: { id: deliveryId },
@@ -99,6 +99,7 @@ async function deliver(args: {
         status: "failed_permanent",
         lastError: "endpoint disabled or removed",
         lastAttemptAt: new Date(),
+        nextAttemptAt: null,
       },
     });
     return;
@@ -107,6 +108,9 @@ async function deliver(args: {
   const rawBody = JSON.stringify(delivery.payload);
   const signature = sign(rawBody, delivery.endpoint.secret);
 
+  // Per-row maxAttempts wins so operators can extend the retry budget on a
+  // flaky endpoint by editing the column. Falls back to the worker default.
+  const maxAttempts = delivery.maxAttempts ?? workerMaxAttempts;
   const attempt = delivery.attempts + 1;
   const isFinalAttempt = attempt >= maxAttempts;
 
@@ -151,6 +155,7 @@ async function deliver(args: {
           lastResponseCode: responseCode,
           lastResponseBody: responseBody,
           lastError: null,
+          nextAttemptAt: null,
         },
       });
       log.info(
@@ -167,7 +172,12 @@ async function deliver(args: {
 
   // Failure path. Record state, then throw to let pg-boss schedule a retry.
   // If we've already burned the budget, mark permanent and *don't* throw —
-  // pg-boss would just try again.
+  // pg-boss would just try again. nextAttemptAt mirrors pg-boss's backoff
+  // (1s * 2^attempt) so the dashboard / SDK consumers can show "next retry
+  // at" without poking at pg-boss internals.
+  const nextAttemptAt = isFinalAttempt
+    ? null
+    : new Date(Date.now() + retryDelaySec(attempt) * 1000);
   await prisma.webhookDelivery.update({
     where: { id: delivery.id },
     data: {
@@ -175,6 +185,7 @@ async function deliver(args: {
       lastResponseCode: responseCode,
       lastResponseBody: responseBody,
       lastError: errorMsg,
+      nextAttemptAt,
     },
   });
   log.warn(
@@ -192,4 +203,10 @@ async function deliver(args: {
   if (!isFinalAttempt) {
     throw new Error(errorMsg ?? "webhook delivery failed");
   }
+}
+
+/** Mirrors pg-boss's exponential backoff with retryDelay=1, retryBackoff=true.
+ *  After attempt N, pg-boss waits ~ retryDelay * 2^(N-1) seconds. */
+function retryDelaySec(attempt: number): number {
+  return Math.pow(2, Math.max(0, attempt - 1));
 }

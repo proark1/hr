@@ -18,7 +18,9 @@ const SKIP_PATHS = new Set(["/healthz", "/"]);
  * Routes set `req.auditAction` (e.g. "employee.created") and optionally
  * `req.auditResource` ("employee:<uuid>"). On response, we persist an event
  * tagged with the tenant + actor (from X-Actor). Reads are recorded too —
- * GDPR Art. 30 expects logs of access to personal data.
+ * GDPR Art. 30 expects logs of access to personal data, including failed
+ * access. 5xx responses are tagged `failure: true` in metadata so incident
+ * triage and access reviews see them.
  *
  * The insert runs in master mode because it happens after the request's own
  * transaction has closed, so the tenant session vars aren't set. The audit
@@ -29,13 +31,13 @@ export default fp(async (app) => {
   app.addHook("onResponse", async (req, reply) => {
     const path = reqPath(req.url);
     if (SKIP_PATHS.has(path) || path.startsWith("/openapi")) return;
-    if (reply.statusCode >= 500) return;
 
     // Log anonymous requests too — auth failures and unauthenticated probes
     // are useful security signal. We can't tag them with a tenant.
     const isAnonymous = !req.caller;
     const tenantId = isAnonymous ? null : (req.tenantId ?? null);
     const actorType = req.caller?.type ?? "anonymous";
+    const isFailure = reply.statusCode >= 500;
 
     const action =
       req.auditAction ?? `${req.method.toLowerCase()} ${req.routeOptions?.url ?? path}`;
@@ -59,6 +61,7 @@ export default fp(async (app) => {
                 method: req.method,
                 path,
                 status: reply.statusCode,
+                ...(isFailure ? { failure: true } : {}),
                 ...(req.auditMetadata ?? {}),
               },
             },

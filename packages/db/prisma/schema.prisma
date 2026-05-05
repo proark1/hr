@@ -164,8 +164,12 @@ model AuditEvent {
 // -- Idempotency -------------------------------------------------------------
 
 model IdempotencyKey {
-  key          String   @id
-  orgId        String?  @map("org_id") @db.Uuid
+  // (orgId, key) is the PK. orgId uses the sentinel
+  // 00000000-0000-0000-0000-000000000000 for master-without-tenant requests so
+  // two different tenants picking the same key string can't collide. There is
+  // no FK to orgs — this is a request-replay cache, not tenant-owned data.
+  key          String
+  orgId        String   @map("org_id") @db.Uuid
   method       String
   path         String
   requestHash  String   @map("request_hash")
@@ -174,6 +178,7 @@ model IdempotencyKey {
   createdAt    DateTime @default(now()) @map("created_at")
   expiresAt    DateTime @map("expires_at")
 
+  @@id([orgId, key])
   @@index([expiresAt])
   @@map("idempotency_keys")
 }
