@@ -80,10 +80,16 @@ Idempotency-Key: <uuid>                required on writes (1tap retries safely)
 ```bash
 pnpm install
 cp .env.example .env
-# edit .env, set DATABASE_URL to a local Postgres
+# edit .env: set DATABASE_URL, MASTER_API_KEY, BETTER_AUTH_SECRET
 pnpm db:generate
 pnpm db:migrate
+
+# API picks up the root .env automatically in dev (via internal logic in env.ts).
 pnpm api:dev
+
+# Next.js looks for env in apps/web/.env.local — symlink the root .env once:
+ln -sf ../../.env apps/web/.env.local
+pnpm web:dev
 ```
 
 In another shell, configure and run the MCP server:

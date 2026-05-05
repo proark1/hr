@@ -15,6 +15,7 @@
     "db:migrate": "pnpm --filter @myhr/db migrate",
     "db:migrate:deploy": "pnpm --filter @myhr/db migrate:deploy",
     "api:dev": "pnpm --filter @myhr/api dev",
+    "web:dev": "pnpm --filter @myhr/web dev",
     "mcp:dev": "pnpm --filter @myhr/mcp dev"
   },
   "devDependencies": {
