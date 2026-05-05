@@ -26,7 +26,7 @@ async function main() {
     process.exit(1);
   }
   const password = process.argv[3] ?? randomBytes(12).toString("base64url");
-  const name = email.split("@")[0];
+  const name = email.split("@")[0] ?? email;
 
   const result = await auth.api.signUpEmail({
     body: { email, password, name },
