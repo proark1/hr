@@ -1,0 +1,47 @@
+name: create-user
+
+# Manually create a Better Auth user against the deployed Postgres.
+# Useful when the browser sign-up flow is failing and you need a working
+# login while the underlying issue is being debugged.
+#
+# Required repo secrets:
+#   DATABASE_URL          - Railway public proxy URL (postgresql://...rlwy.net...)
+#   DIRECT_DATABASE_URL   - same value works
+#   BETTER_AUTH_SECRET    - must match the value set on Vercel
+#   NEXT_PUBLIC_APP_URL   - https://hr-web-pi.vercel.app (or your custom domain)
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Email for the new user"
+        required: true
+      password:
+        description: "Password (optional — generated if blank)"
+        required: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @myhr/db generate
+      - run: pnpm --filter "./packages/*" build
+      - name: Create user
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+        run: |
+          pnpm --filter @myhr/web exec tsx scripts/create-user.ts \
+            "${{ inputs.email }}" \
+            "${{ inputs.password }}"
