@@ -4584,8 +4584,18 @@
             },
             "in": "header",
             "name": "x-tenant-id",
-            "required": true,
-            "description": "Tenant org id. Required on all tenant-scoped endpoints."
+            "required": false,
+            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "x-org-id",
+            "required": false,
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -5078,8 +5088,27 @@
             },
             "in": "header",
             "name": "x-tenant-id",
-            "required": true,
-            "description": "Tenant org id. Required on all tenant-scoped endpoints."
+            "required": false,
+            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "x-org-id",
+            "required": false,
+            "description": "Tenant org id — required for end-user (auth-service) callers."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           },
           {
             "schema": {
@@ -5091,15 +5120,6 @@
             "name": "idempotency-key",
             "required": true,
             "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "name": "x-actor",
-            "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
         "security": [
@@ -5525,8 +5545,18 @@
             },
             "in": "header",
             "name": "x-tenant-id",
-            "required": true,
-            "description": "Tenant org id. Required on all tenant-scoped endpoints."
+            "required": false,
+            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "x-org-id",
+            "required": false,
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -6036,8 +6066,27 @@
             },
             "in": "header",
             "name": "x-tenant-id",
-            "required": true,
-            "description": "Tenant org id. Required on all tenant-scoped endpoints."
+            "required": false,
+            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "x-org-id",
+            "required": false,
+            "description": "Tenant org id — required for end-user (auth-service) callers."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           },
           {
             "schema": {
@@ -6049,15 +6098,6 @@
             "name": "idempotency-key",
             "required": true,
             "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "name": "x-actor",
-            "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
         "security": [
@@ -6522,8 +6562,27 @@
             },
             "in": "header",
             "name": "x-tenant-id",
-            "required": true,
-            "description": "Tenant org id. Required on all tenant-scoped endpoints."
+            "required": false,
+            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "x-org-id",
+            "required": false,
+            "description": "Tenant org id — required for end-user (auth-service) callers."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           },
           {
             "schema": {
@@ -6535,15 +6594,6 @@
             "name": "idempotency-key",
             "required": true,
             "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "name": "x-actor",
-            "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
           }
         ],
         "security": [
@@ -6918,8 +6968,18 @@
             },
             "in": "header",
             "name": "x-tenant-id",
-            "required": true,
-            "description": "Tenant org id. Required on all tenant-scoped endpoints."
+            "required": false,
+            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "header",
+            "name": "x-org-id",
+            "required": false,
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
