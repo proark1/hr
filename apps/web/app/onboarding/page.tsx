@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { createOrgAction } from "../actions";
+import { createOrgAction } from "../(app)/actions";
 
-// /onboarding is its own route (not behind /(app)/layout) because the layout
-// fetches /v1/me/orgs and would redirect right back here. The onboarding
-// flow itself does the auth check inline.
+// /onboarding lives outside the /(app) route group on purpose. The (app)
+// layout fetches /v1/me/orgs and redirects to /onboarding when the caller
+// has none — if onboarding sat under that layout, fresh users would hit an
+// infinite redirect loop. Auth + org-already-exists checks run inline here.
 export default async function OnboardingPage() {
   const session = await getSession();
   if (!session) redirect("/login");
