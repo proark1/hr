@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { createClient } from "@myhr/sdk";
 import {
   AuthServiceError,
   login as authLogin,
@@ -9,6 +10,7 @@ import {
   resetPassword as authResetPassword,
   verifyEmail as authVerifyEmail,
 } from "@/lib/auth-service";
+import { setActiveOrgIdCookie } from "@/lib/active-org";
 import { endSession, setSessionCookies } from "@/lib/session";
 
 export type AuthFormState =
@@ -57,6 +59,28 @@ export async function loginAction(
   }
 
   await setSessionCookies(result.tokens);
+
+  // Pre-resolve the active-org cookie. Server Components can't write
+  // cookies, so the (app) layout can't set it later in the render — and
+  // /overview's first call to /v1/employees would 400 with `tenant_required`
+  // because the SDK has no `defaultOrgId` to put in `X-Org-Id`. Doing it
+  // here (a server action can mutate cookies) ensures the cookie is in
+  // place before the redirected GET fires.
+  try {
+    const api = createClient({
+      baseUrl: process.env.MYHR_API_URL ?? "http://localhost:8080",
+      getToken: () => result.tokens.access_token,
+      fetch: (url, init) => fetch(url, { ...init, cache: "no-store" }),
+    });
+    const myOrgs = await api.me.listMyOrgs();
+    if (myOrgs.items.length > 0) {
+      await setActiveOrgIdCookie(myOrgs.items[0]!.org.id);
+    }
+  } catch {
+    // Best-effort. If the API is unreachable here, the layout still renders
+    // and the worst case is a redirect to /onboarding (where the cookie
+    // gets set after the user creates their first org).
+  }
   redirect(next);
 }
 
