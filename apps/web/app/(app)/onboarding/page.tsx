@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { getApiClient } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import { createOrgAction } from "../actions";
 // fetches /v1/me/orgs and would redirect right back here. The onboarding
 // flow itself does the auth check inline.
 export default async function OnboardingPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session) redirect("/login");
 
   // If the user already has an org, send them to the dashboard.

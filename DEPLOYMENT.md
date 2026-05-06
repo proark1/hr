@@ -1,16 +1,17 @@
 # Deployment
 
-MyHR runs as two services + one Postgres. The web app and API talk to each other; both talk to the same Postgres.
+MyHR runs as two services + one Postgres, plus the external [proark1/auth](https://github.com/proark1/auth) service for end-user identity. The web app and API talk to each other; both talk to the same Postgres. The web app talks to the auth service server-side; the API verifies access tokens against the auth service's JWKS.
 
 ```
-                      ┌────────────────────┐
-              cookie  │  Vercel: apps/web  │  Next.js + Better Auth
-   browser ──────────►│                    │
-                      └─────────┬──────────┘
-                                │ Bearer (Better Auth session token)
-                                ▼
-                      ┌────────────────────┐
-1tap (master key) ───►│  Railway: apps/api │  Fastify + Prisma
+                      ┌────────────────────┐         ┌──────────────────────┐
+              cookie  │  Vercel: apps/web  │ ──────► │  proark1/auth        │
+   browser ──────────►│                    │         │  (login, refresh,    │
+                      └─────────┬──────────┘         │   /.well-known/jwks) │
+                                │ Bearer (auth-      └─────────┬────────────┘
+                                │  service JWT)                │ JWKS
+                                ▼                              ▼
+                      ┌────────────────────┐         (verifies access tokens)
+1tap (master key) ───►│  Railway: apps/api │
                       │                    │
                       └─────────┬──────────┘
                                 │
@@ -22,7 +23,7 @@ MyHR runs as two services + one Postgres. The web app and API talk to each other
 
 ## Env-var matrix
 
-The two services share **`BETTER_AUTH_SECRET`** so a session token issued by the web app verifies on the API. They must match exactly.
+The auth service is the source of truth for end-user identity. Both MyHR services need to point at the same auth instance and agree on `AUTH_JWT_ISSUER` + `AUTH_JWT_AUDIENCE` so JWTs verify cleanly.
 
 ### Vercel (`apps/web`)
 
@@ -30,14 +31,11 @@ Set on **both** Production and Preview environments:
 
 | Var | Value | Notes |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://...@<host>.proxy.rlwy.net:<port>/railway` | Railway Postgres **public** URL (Variables tab → click eye icon). Better Auth queries this directly. |
+| `DATABASE_URL` | `postgresql://...@<host>.proxy.rlwy.net:<port>/railway` | Railway Postgres **public** URL (Variables tab → click eye icon). Used by Prisma during build (`db generate`) and any server-side reads. |
 | `DIRECT_DATABASE_URL` | same | Prisma uses this for migrations; same value is fine. |
-| `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | **Must match Railway's value.** Rotating means re-deploying both. |
-| `BETTER_AUTH_URL` | `https://<vercel-domain>` | Or your custom domain. |
-| `NEXT_PUBLIC_APP_URL` | `https://<vercel-domain>` | Same as above. |
+| `AUTH_API_URL` | `https://<auth-service-domain>` | Base URL of the proark1/auth deployment. |
+| `NEXT_PUBLIC_APP_URL` | `https://<vercel-domain>` | Used in invite links + the auth-service callback URL. |
 | `MYHR_API_URL` | `https://<railway-api-domain>` | The API's public URL. |
-| `GOOGLE_CLIENT_ID` | from Google Cloud Console | Optional; enables Google sign-in if both client id + secret are set. |
-| `GOOGLE_CLIENT_SECRET` | same | Optional. |
 
 Vercel project settings → **Root Directory: `apps/web`**, framework auto-detected as Next.js. The pnpm workspace is handled automatically.
 
@@ -48,8 +46,10 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (Reference) | Internal Railway URL — fast, doesn't egress. |
 | `DIRECT_DATABASE_URL` | same | |
 | `MASTER_API_KEY` | `mh_live_$(openssl rand -hex 32)` | 1tap's only credential. Share out-of-band. |
-| `BETTER_AUTH_SECRET` | **must match Vercel's value** | Without this, the API can't verify web app sessions and all user-auth requests return 401. |
-| `WEB_APP_URL` | same as Vercel `BETTER_AUTH_URL` | Required when `BETTER_AUTH_SECRET` is set; used for invitation links + Better Auth `trustedOrigins`. |
+| `AUTH_API_URL` | same as Vercel `AUTH_API_URL` | Used to fetch the JWKS for verifying access tokens. |
+| `AUTH_JWT_ISSUER` | the auth service's `iss` claim | Pinned during JWT verification. |
+| `AUTH_JWT_AUDIENCE` | a value reserved for MyHR (e.g. `myhr`) | Pinned during JWT verification. |
+| `WEB_APP_URL` | same as Vercel `NEXT_PUBLIC_APP_URL` | Used for invitation links + CORS. |
 | `MAILNOW_API_KEY` | from your mailnowapi dashboard | Optional. Without it, invitation emails are logged to stdout instead of sent. |
 | `EMAIL_FROM` | `MyHR <noreply@yourdomain>` | Required when `MAILNOW_API_KEY` is set. |
 | `MAILNOW_API_URL` | `https://mailnowapi.com` (default) | Override if running the email service elsewhere. |
@@ -59,21 +59,21 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 
 ## First-time setup
 
-1. **Generate two secrets**, save them somewhere reachable:
+1. **Deploy proark1/auth** (separate Railway project, see its README). Note its public URL, configured `JWT_ISSUER`, and pick an `aud` value reserved for MyHR.
+2. **Generate the master key**:
    ```bash
    echo "MASTER_API_KEY=mh_live_$(openssl rand -hex 32)"
-   echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)"
    ```
-2. **Railway** → API service → Variables → paste both above plus the rest from the table.
-3. **Vercel** → `hr-web` project → Settings → Environment Variables → add the Vercel rows from the table. Make sure `BETTER_AUTH_SECRET` is the **same** value as on Railway.
-4. **Redeploy both** services so they pick up the new env.
-5. Visit your Vercel URL, sign up, create an org. The dashboard should load.
+3. **Railway** → API service → Variables → paste `MASTER_API_KEY`, `AUTH_API_URL`, `AUTH_JWT_ISSUER`, `AUTH_JWT_AUDIENCE`, plus the rest from the table.
+4. **Vercel** → `hr-web` project → Settings → Environment Variables → add the Vercel rows from the table. `AUTH_API_URL` must point at the same auth deployment as Railway.
+5. **Redeploy both** services so they pick up the new env.
+6. Visit your Vercel URL, sign up (handled by the auth service), verify your email, sign in, create an org. The dashboard should load.
 
 ## Custom domain (optional)
 
 - Web app → `app.myhr.eu` (or your domain)
   - Vercel → Settings → Domains → add `app.myhr.eu`, follow DNS instructions
-  - Update `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` on Vercel
+  - Update `NEXT_PUBLIC_APP_URL` on Vercel
   - Update `WEB_APP_URL` on Railway
 - API → `api.myhr.eu`
   - Railway → API service → Settings → Networking → Custom Domain
@@ -98,19 +98,24 @@ curl https://<api-domain>/v1/orgs \
 # 3. Web app loads
 curl -I https://<web-domain>
 # → 200 OK
+
+# 4. Auth service JWKS is reachable from the API region
+curl https://<auth-domain>/.well-known/jwks.json
 ```
 
 End-to-end smoke test (browser):
 
-1. Sign up at `https://<web-domain>/signup` with email/password.
-2. Land on `/onboarding` → enter an org name → submit.
-3. Land on `/overview` with stat cards showing zeros.
-4. `/employees/new` → add a test employee → row appears in `/employees`.
-5. `/admin/invite` → invite a second email → if `MAILNOW_API_KEY` is set, the invite arrives by email; if not, the page shows the accept URL to copy.
+1. Sign up at `https://<web-domain>/signup` with email/password — the form calls the auth service's `/v1/register`.
+2. Click the verification link from the email the auth service sent.
+3. Sign in at `/login` → cookies are set with the access + refresh tokens.
+4. Land on `/onboarding` → enter an org name → submit.
+5. Land on `/overview` with stat cards showing zeros.
+6. `/employees/new` → add a test employee → row appears in `/employees`.
+7. `/admin/invite` → invite a second email → if `MAILNOW_API_KEY` is set, the invite arrives by email; if not, the page shows the accept URL to copy.
 
 ## Things to watch out for
 
-- **`BETTER_AUTH_SECRET` mismatch** between Vercel and Railway is the most common foot-gun. Symptom: signup works but the dashboard immediately bounces back to `/login` because `/v1/me` returns 401.
-- **Database connection limits**: the web app's Better Auth + the API's Prisma both connect to the same Postgres. Railway's free tier caps at ~10 connections. If you scale Vercel out, switch to Railway's paid plan or front Postgres with PgBouncer.
+- **Issuer / audience mismatch** between the auth service and the API is the most common foot-gun. Symptom: login works but every API call returns 401. Check `AUTH_JWT_ISSUER` and `AUTH_JWT_AUDIENCE` on Railway match what the auth service signs into JWTs.
+- **JWKS caching**: `jose`'s remote JWKS caches keys; if you rotate keys on the auth service, allow a few minutes for the API to pick up the new ones, or restart the API service.
 - **Email deliverability**: `EMAIL_FROM` must be on a domain you've configured DKIM/SPF for inside mailnowapi. Otherwise invitations land in spam.
 - **Cold starts**: Vercel may cold-start after inactivity; first signup after a quiet period is ~1–2 s slower. Acceptable for B2B.

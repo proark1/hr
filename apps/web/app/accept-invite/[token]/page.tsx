@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AcceptInviteForm } from "./accept-form";
@@ -11,7 +10,7 @@ type Props = {
 
 export default async function AcceptInvitePage({ params }: Props) {
   const { token } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">

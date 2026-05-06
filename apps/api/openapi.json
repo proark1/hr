@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "MyHR API",
-    "description": "API-first HR service for [1tap.ai](https://1tap.ai). One master integrator (1tap) provisions and operates many startup tenants. End users never log in to MyHR — 1tap brings their own UI and OAuth and calls this API on their behalf.\n\n## Authentication\n\nAll authenticated requests send a bearer token:\n\n```\nAuthorization: Bearer <token>\n```\n\nThree credential types are accepted (each operation lists which subset it allows):\n\n| Scheme | Token format | Used by |\n| --- | --- | --- |\n| `masterApiKey` | `mh_live_…` (env `MASTER_API_KEY`) | 1tap's backend, cross-tenant |\n| `tenantApiKey` | `mh_live_…` (minted from dashboard) | A startup's own integrations |\n| `userSession` | Better Auth session token | The MyHR web app, on behalf of a user |\n\n## Tenant scoping\n\nTenant-scoped endpoints resolve the tenant org per caller type:\n\n- `masterApiKey` → `X-Tenant-Id` header (UUID).\n- `tenantApiKey` → derived from the key; the header is ignored.\n- `userSession` → `X-Org-Id` header, validated against the user's memberships.\n\nAll data access is enforced by Postgres Row-Level Security — a missing or wrong tenant id never returns another tenant's data.\n\n## Audit attribution\n\nMaster callers can pass `X-Actor: {\"id\":\"u_123\",\"email\":\"a@b\",\"name\":\"Ada\"}` (JSON) to attribute the request to a specific 1tap user in the audit log. User-session callers cannot set `X-Actor` (the actor is taken from the session to prevent spoofing).\n\n## Idempotency\n\nWrites (`POST` / `PATCH` / `DELETE`) require an `Idempotency-Key` header (any unique string per logical operation, typically a UUID). Replays within 24h return the cached response. Reusing a key with a different request body returns `409 conflict`.\n\n## Errors\n\nEvery error response uses a single envelope:\n\n```json\n{ \"error\": { \"code\": \"not_found\", \"message\": \"...\", \"details\": {} } }\n```\n\nStable codes: `bad_request`, `tenant_required`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `internal_error`. New codes are additive — clients should switch on `code` and treat unknown codes as a generic failure.\n\n## Pagination\n\nList endpoints use opaque cursors. Pass `?limit=` (1–200, default 50) and `?cursor=<value>` to page forward. The response is `{ items: [...], nextCursor: string | null }` — `nextCursor: null` means you're at the end. Cursors are stable across writes (deletions skip rather than fail).\n\n## Rate limits\n\nEach `masterApiKey` and `tenantApiKey` is limited to **600 requests / minute**, burst 60/sec. Limits are returned on every response:\n\n- `RateLimit-Limit` — total per window\n- `RateLimit-Remaining` — left in window\n- `RateLimit-Reset` — seconds until reset\n\nExceeding the limit returns `429 too_many_requests`. Retry with exponential backoff using the `Retry-After` header.\n\n## Versioning\n\nThe major version is in the URL (`/v1`). Within a major version we only make additive changes (new fields, new operations, new error codes). Deprecations are announced at least 90 days in advance via the `Deprecation` and `Sunset` response headers ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)) and called out in [`apps/api/CHANGELOG.md`](https://github.com/proark1/hr/blob/main/apps/api/CHANGELOG.md).\n\nBreaking changes only ever ship under a new major (`/v2`), and `/v1` will run alongside it for at least 12 months.\n\n## Webhooks\n\nRegister a delivery URL via `POST /v1/webhook-endpoints` with the events you want — currently `employee.created`, `employee.updated`, `employee.deleted`, and (forthcoming) `document.expiring`. The signing secret is returned once at creation; use it to verify the `Webhook-Signature` header on every inbound delivery. The header value is `t=<unix-seconds>,v1=<hex-hmac-sha256>` of `<t>.<raw-body>`, the same format Stripe uses; the SDK exposes `verifyWebhookSignature()` for convenience.\n\nDelivery semantics: each event is enqueued per subscribed endpoint with up to 8 attempts and exponential backoff (~1s → ~17h). The delivery audit log is queryable at `/v1/webhook-deliveries`, and any non-`delivered` row can be re-enqueued via `/v1/webhook-deliveries/{id}/redeliver`. Receivers must respond with any 2xx within 10s; non-2xx triggers a retry.\n\n## Quickstart\n\n```bash\ncurl https://api.myhr.example/v1/employees \\\n  -H 'Authorization: Bearer $MASTER_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\"}'\n```",
+    "description": "API-first HR service for [1tap.ai](https://1tap.ai). One master integrator (1tap) provisions and operates many startup tenants. End users never log in to MyHR — 1tap brings their own UI and OAuth and calls this API on their behalf.\n\n## Authentication\n\nAll authenticated requests send a bearer token:\n\n```\nAuthorization: Bearer <token>\n```\n\nThree credential types are accepted (each operation lists which subset it allows):\n\n| Scheme | Token format | Used by |\n| --- | --- | --- |\n| `masterApiKey` | `mh_live_…` (env `MASTER_API_KEY`) | 1tap's backend, cross-tenant |\n| `tenantApiKey` | `mh_live_…` (minted from dashboard) | A startup's own integrations |\n| `userSession` | Auth-service access token (JWT) | The MyHR web app, on behalf of a user |\n\n## Tenant scoping\n\nTenant-scoped endpoints resolve the tenant org per caller type:\n\n- `masterApiKey` → `X-Tenant-Id` header (UUID).\n- `tenantApiKey` → derived from the key; the header is ignored.\n- `userSession` → `X-Org-Id` header, validated against the user's memberships.\n\nAll data access is enforced by Postgres Row-Level Security — a missing or wrong tenant id never returns another tenant's data.\n\n## Audit attribution\n\nMaster callers can pass `X-Actor: {\"id\":\"u_123\",\"email\":\"a@b\",\"name\":\"Ada\"}` (JSON) to attribute the request to a specific 1tap user in the audit log. User-session callers cannot set `X-Actor` (the actor is taken from the session to prevent spoofing).\n\n## Idempotency\n\nWrites (`POST` / `PATCH` / `DELETE`) require an `Idempotency-Key` header (any unique string per logical operation, typically a UUID). Replays within 24h return the cached response. Reusing a key with a different request body returns `409 conflict`.\n\n## Errors\n\nEvery error response uses a single envelope:\n\n```json\n{ \"error\": { \"code\": \"not_found\", \"message\": \"...\", \"details\": {} } }\n```\n\nStable codes: `bad_request`, `tenant_required`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `internal_error`. New codes are additive — clients should switch on `code` and treat unknown codes as a generic failure.\n\n## Pagination\n\nList endpoints use opaque cursors. Pass `?limit=` (1–200, default 50) and `?cursor=<value>` to page forward. The response is `{ items: [...], nextCursor: string | null }` — `nextCursor: null` means you're at the end. Cursors are stable across writes (deletions skip rather than fail).\n\n## Rate limits\n\nEach `masterApiKey` and `tenantApiKey` is limited to **600 requests / minute**, burst 60/sec. Limits are returned on every response:\n\n- `RateLimit-Limit` — total per window\n- `RateLimit-Remaining` — left in window\n- `RateLimit-Reset` — seconds until reset\n\nExceeding the limit returns `429 too_many_requests`. Retry with exponential backoff using the `Retry-After` header.\n\n## Versioning\n\nThe major version is in the URL (`/v1`). Within a major version we only make additive changes (new fields, new operations, new error codes). Deprecations are announced at least 90 days in advance via the `Deprecation` and `Sunset` response headers ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)) and called out in [`apps/api/CHANGELOG.md`](https://github.com/proark1/hr/blob/main/apps/api/CHANGELOG.md).\n\nBreaking changes only ever ship under a new major (`/v2`), and `/v1` will run alongside it for at least 12 months.\n\n## Webhooks\n\nRegister a delivery URL via `POST /v1/webhook-endpoints` with the events you want — currently `employee.created`, `employee.updated`, `employee.deleted`, and (forthcoming) `document.expiring`. The signing secret is returned once at creation; use it to verify the `Webhook-Signature` header on every inbound delivery. The header value is `t=<unix-seconds>,v1=<hex-hmac-sha256>` of `<t>.<raw-body>`, the same format Stripe uses; the SDK exposes `verifyWebhookSignature()` for convenience.\n\nDelivery semantics: each event is enqueued per subscribed endpoint with up to 8 attempts and exponential backoff (~1s → ~17h). The delivery audit log is queryable at `/v1/webhook-deliveries`, and any non-`delivered` row can be re-enqueued via `/v1/webhook-deliveries/{id}/redeliver`. Receivers must respond with any 2xx within 10s; non-2xx triggers a retry.\n\n## Quickstart\n\n```bash\ncurl https://api.myhr.example/v1/employees \\\n  -H 'Authorization: Bearer $MASTER_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\"}'\n```",
     "version": "0.0.1"
   },
   "components": {
@@ -20,7 +20,7 @@
       "userSession": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Better Auth session token forwarded by the web app. End-user callers send `X-Org-Id` to select which of their orgs the request targets. `X-Actor` is ignored on user-session requests (the actor is taken from the session to prevent spoofing)."
+        "description": "Access token (JWT) issued by the external auth service (proark1/auth) and forwarded by the web app. End-user callers send `X-Org-Id` to select which of their orgs the request targets. `X-Actor` is ignored on user-session requests (the actor is taken from the session to prevent spoofing)."
       }
     },
     "schemas": {}
@@ -1109,7 +1109,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -2294,7 +2294,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -2675,7 +2675,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -3070,7 +3070,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -3848,7 +3848,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -4193,7 +4193,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -7414,7 +7414,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -7812,7 +7812,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -8180,7 +8180,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -8613,7 +8613,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -9017,7 +9017,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -9356,7 +9356,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -9816,7 +9816,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -10242,7 +10242,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {
@@ -10688,7 +10688,7 @@
             "in": "header",
             "name": "x-org-id",
             "required": false,
-            "description": "Tenant org id — required for end-user (Better Auth) callers."
+            "description": "Tenant org id — required for end-user (auth-service) callers."
           },
           {
             "schema": {

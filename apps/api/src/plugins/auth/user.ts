@@ -1,67 +1,74 @@
-import type { IncomingHttpHeaders } from "node:http";
 import { withTenant, type PrismaClient } from "@myhr/db";
-import { getAuth } from "../../lib/better-auth.js";
+import { verifyAccessToken } from "../../lib/auth-service.js";
 import type { Actor, Caller } from "./types.js";
 
 /**
- * Try the Better Auth user strategy.
+ * Try the user strategy.
  *
- * Verifies the bearer token via Better Auth's session lookup against our
- * Postgres. On success, hydrates the caller with the user's memberships
- * (read with master mode since memberships are RLS-scoped and we're
- * outside an org context at this point).
+ * Verifies the bearer token as a JWT issued by the external auth service
+ * (proark1/auth). On success, lazy-upserts the user record in our DB (the
+ * auth service is the source of truth for identity; we only mirror enough
+ * to hang OrgMembership rows off a foreign key) and hydrates memberships.
  *
- * Returns null if Better Auth isn't configured (BETTER_AUTH_SECRET unset)
- * or if the token doesn't resolve to a live session.
+ * Returns null if the auth service isn't configured or the token doesn't
+ * verify, leaving the orchestrator to return 401.
  */
 export async function tryUser(
   prisma: PrismaClient,
-  headers: IncomingHttpHeaders,
+  token: string,
 ): Promise<{ caller: Caller; actor: Actor } | null> {
-  const auth = getAuth();
-  if (!auth) return null;
+  const claims = await verifyAccessToken(token);
+  if (!claims) return null;
 
-  const fetchHeaders = toFetchHeaders(headers);
-  const session = await auth.api.getSession({ headers: fetchHeaders }).catch(() => null);
-  if (!session?.user) return null;
+  const userId = claims.sub;
+  const email = claims.email;
+  const name = typeof claims.name === "string" ? claims.name : null;
+  const isSuperAdmin = claims.is_super_admin === true;
 
-  const u = session.user as { id: string; email: string; name?: string | null; isSuperAdmin?: boolean };
   const memberships = await withTenant(
     prisma,
-    { orgId: null, isMaster: true, userId: u.id },
-    (tx) =>
-      tx.orgMembership.findMany({
-        where: { userId: u.id, deletedAt: null },
+    { orgId: null, isMaster: true, userId },
+    async (tx) => {
+      // Read first and only write when something actually changed — every
+      // authenticated request hits this path, and an unconditional upsert
+      // would generate a write (WAL, audit triggers) on every call.
+      const existing = await tx.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true, isSuperAdmin: true },
+      });
+      if (!existing) {
+        await tx.user.create({
+          data: { id: userId, email, name, isSuperAdmin, emailVerified: true },
+        });
+      } else if (
+        existing.email !== email ||
+        existing.name !== name ||
+        existing.isSuperAdmin !== isSuperAdmin
+      ) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { email, name, isSuperAdmin },
+        });
+      }
+      return tx.orgMembership.findMany({
+        where: { userId, deletedAt: null },
         select: { orgId: true, role: true },
-      }),
+      });
+    },
   );
 
   return {
     caller: {
       type: "user",
-      userId: u.id,
-      email: u.email,
-      isSuperAdmin: u.isSuperAdmin ?? false,
+      userId,
+      email,
+      isSuperAdmin,
       memberships,
     },
     actor: {
-      id: u.id,
-      email: u.email,
-      name: u.name ?? undefined,
+      id: userId,
+      email,
+      name: name ?? undefined,
     },
   };
-}
-
-/** Convert Node IncomingHttpHeaders to a fetch-style Headers instance. */
-function toFetchHeaders(h: IncomingHttpHeaders): Headers {
-  const out = new Headers();
-  for (const [k, v] of Object.entries(h)) {
-    if (v === undefined) continue;
-    if (Array.isArray(v)) {
-      for (const item of v) out.append(k, item);
-    } else {
-      out.set(k, v);
-    }
-  }
-  return out;
 }

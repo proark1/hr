@@ -5,9 +5,10 @@
  *   - master:     1tap.ai's bootstrap API key (env MASTER_API_KEY).
  *   - tenant_key: org-scoped API key minted from the dashboard. Caller's
  *                 orgId is fixed by the key.
- *   - user:       Better Auth session token forwarded by the web app's
- *                 server actions. orgId is selected per-request via
- *                 X-Org-Id and validated against the user's memberships.
+ *   - user:       Access token (JWT) issued by the external auth service
+ *                 (proark1/auth) and forwarded by the web app. orgId is
+ *                 selected per-request via X-Org-Id and validated against
+ *                 the user's memberships.
  */
 
 import type { MembershipRole } from "@myhr/db";

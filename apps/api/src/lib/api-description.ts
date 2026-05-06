@@ -19,7 +19,7 @@ export const apiDescription = [
   "| --- | --- | --- |",
   "| `masterApiKey` | `mh_live_…` (env `MASTER_API_KEY`) | 1tap's backend, cross-tenant |",
   "| `tenantApiKey` | `mh_live_…` (minted from dashboard) | A startup's own integrations |",
-  "| `userSession` | Better Auth session token | The MyHR web app, on behalf of a user |",
+  "| `userSession` | Auth-service access token (JWT) | The MyHR web app, on behalf of a user |",
   "",
   "## Tenant scoping",
   "",

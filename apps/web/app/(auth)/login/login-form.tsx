@@ -1,35 +1,19 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "@/lib/auth-client";
+import { useSearchParams } from "next/navigation";
+import { useActionState } from "react";
+import { loginAction, type AuthFormState } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const initialState: AuthFormState = { status: "idle" };
+
 export function LoginForm() {
-  const router = useRouter();
   const search = useSearchParams();
   const next = search.get("next") || "/overview";
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setPending(true);
-    const res = await signIn.email({ email, password, callbackURL: next });
-    setPending(false);
-    if (res.error) {
-      setError(res.error.message ?? "Sign-in failed");
-      return;
-    }
-    router.push(next);
-    router.refresh();
-  }
+  const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
     <Card>
@@ -37,30 +21,25 @@ export function LoginForm() {
         <CardTitle>Welcome back</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form action={formAction} className="space-y-4">
+          <input type="hidden" name="next" value={next} />
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <Input id="email" name="email" type="email" required autoComplete="email" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
+              name="password"
               type="password"
               required
               autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {state.status === "error" || state.status === "mfa" ? (
+            <p className="text-sm text-destructive">{state.message}</p>
+          ) : null}
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Signing in..." : "Sign in"}
           </Button>
