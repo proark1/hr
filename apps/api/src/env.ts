@@ -49,10 +49,12 @@ const Env = z
     // AUTH_API_URL is unset, so the API runs happily with master +
     // tenant-key callers only.
     AUTH_API_URL: z.string().url().optional(),
-    // Issuer + audience claims expected on access tokens. Both must match
-    // what the auth service signs into JWTs, otherwise verification fails.
-    AUTH_JWT_ISSUER: z.string().min(1).optional(),
-    AUTH_JWT_AUDIENCE: z.string().min(1).optional(),
+    // OAuth client credentials. Used to call /v1/clients/me at boot to
+    // discover the audience the auth service signs into our JWTs (we used
+    // to pin AUTH_JWT_ISSUER / AUTH_JWT_AUDIENCE manually; both are now
+    // sourced from /.well-known/openid-configuration + /v1/clients/me).
+    AUTH_CLIENT_ID: z.string().min(1).optional(),
+    AUTH_CLIENT_SECRET: z.string().min(1).optional(),
     // Public origin of the web app (Vercel). Used for CORS / trusted
     // origins. Optional; only the web app strictly needs it.
     WEB_APP_URL: z.string().url().optional(),
@@ -63,9 +65,9 @@ const Env = z
     // Required when MAILNOW_API_KEY is set. e.g. "MyHR <noreply@myhr.eu>".
     EMAIL_FROM: z.string().optional(),
   })
-  .refine((d) => !d.AUTH_API_URL || (!!d.AUTH_JWT_ISSUER && !!d.AUTH_JWT_AUDIENCE), {
-    message: "AUTH_JWT_ISSUER and AUTH_JWT_AUDIENCE are required when AUTH_API_URL is set",
-    path: ["AUTH_JWT_ISSUER"],
+  .refine((d) => !d.AUTH_API_URL || (!!d.AUTH_CLIENT_ID && !!d.AUTH_CLIENT_SECRET), {
+    message: "AUTH_CLIENT_ID and AUTH_CLIENT_SECRET are required when AUTH_API_URL is set",
+    path: ["AUTH_CLIENT_ID"],
   })
   .refine((d) => !d.MAILNOW_API_KEY || !!d.EMAIL_FROM, {
     message: "EMAIL_FROM is required when MAILNOW_API_KEY is set",
