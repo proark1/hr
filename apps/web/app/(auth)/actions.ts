@@ -4,6 +4,10 @@ import {
   AuthServiceError,
   login as authLogin,
   register as authRegister,
+  requestPasswordReset as authRequestPasswordReset,
+  resendVerification as authResendVerification,
+  resetPassword as authResetPassword,
+  verifyEmail as authVerifyEmail,
 } from "@/lib/auth-service";
 import { endSession, setSessionCookies } from "@/lib/session";
 
@@ -72,6 +76,15 @@ export async function signupAction(
     await authRegister(email, password, name || undefined);
   } catch (err) {
     if (err instanceof AuthServiceError) {
+      // 409 = email already registered. Tell the user explicitly so they
+      // don't keep waiting for a verification email that won't arrive.
+      if (err.status === 409 || err.code === "email_taken") {
+        return {
+          status: "error",
+          message:
+            "This email is already registered. Sign in instead, or use 'Forgot password' if you don't remember it.",
+        };
+      }
       return { status: "error", message: err.message };
     }
     return { status: "error", message: "Sign-up failed. Please try again." };
@@ -86,4 +99,85 @@ export async function signupAction(
 export async function signOutAction(): Promise<void> {
   await endSession();
   redirect("/");
+}
+
+export async function verifyEmailAction(token: string): Promise<AuthFormState> {
+  if (!token) return { status: "error", message: "Missing verification token." };
+  try {
+    await authVerifyEmail(token);
+  } catch (err) {
+    if (err instanceof AuthServiceError) {
+      // 400/410 typically means the token expired or was already used.
+      const expired = err.status === 400 || err.status === 410;
+      return {
+        status: "error",
+        message: expired
+          ? "This verification link has expired or has already been used."
+          : err.message,
+      };
+    }
+    return { status: "error", message: "We couldn't verify your email. Please try again." };
+  }
+  return { status: "ok", message: "Email verified. You can now sign in." };
+}
+
+export async function resendVerificationAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { status: "error", message: "Enter your email address." };
+  try {
+    await authResendVerification(email);
+  } catch {
+    // Always return success to avoid leaking whether the email exists.
+  }
+  return {
+    status: "ok",
+    message: "If that email is registered, we just sent a new verification link.",
+  };
+}
+
+export async function forgotPasswordAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { status: "error", message: "Enter your email address." };
+  try {
+    await authRequestPasswordReset(email);
+  } catch {
+    // Same enumeration-resistance posture as resend.
+  }
+  return {
+    status: "ok",
+    message: "If that email is registered, we just sent a password reset link.",
+  };
+}
+
+export async function resetPasswordAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const token = String(formData.get("token") ?? "");
+  const password = String(formData.get("password") ?? "");
+  if (!token) return { status: "error", message: "Missing reset token." };
+  if (!password || password.length < 8) {
+    return { status: "error", message: "Password must be at least 8 characters." };
+  }
+  try {
+    await authResetPassword(token, password);
+  } catch (err) {
+    if (err instanceof AuthServiceError) {
+      const expired = err.status === 400 || err.status === 410;
+      return {
+        status: "error",
+        message: expired
+          ? "This reset link has expired or has already been used."
+          : err.message,
+      };
+    }
+    return { status: "error", message: "We couldn't reset your password. Please try again." };
+  }
+  return { status: "ok", message: "Password updated. You can now sign in with your new password." };
 }
