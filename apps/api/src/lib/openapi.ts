@@ -90,7 +90,7 @@ const OrgIdHeader = z.object({
     .string()
     .uuid()
     .optional()
-    .describe("Tenant org id — required for end-user (Better Auth) callers."),
+    .describe("Tenant org id — required for end-user (auth-service) callers."),
 });
 
 const OptionalTenantHeader = z.object({

@@ -10,8 +10,10 @@ Postgres with row-level security.
 - **Surfaces**: REST + MCP server + webhooks (planned) + Next.js web app
 - **Auth**:
   - 1tap: single master API key (`Authorization: Bearer mh_live_…` + `X-Tenant-Id`)
-  - Direct customers: Better Auth (email/password + Google) on the web app;
-    server actions forward a session token to the API as `Authorization: Bearer`
+  - Direct customers: external [proark1/auth](https://github.com/proark1/auth)
+    service (email/password + TOTP MFA, JWT access tokens). The web app
+    talks to the auth service server-side; the API verifies the access
+    token against the auth service's JWKS and forwards no secrets.
 - **Notifications**: invitation emails go via [proark1/emailservice](https://github.com/proark1/emailservice)
   (mailnowapi.com) — toggle by setting `MAILNOW_API_KEY`
 
@@ -43,7 +45,7 @@ packages/
 ## Stack
 
 - Node 22 + TypeScript + Fastify 5 + Zod (API)
-- Next.js 15 + Tailwind 4 + Better Auth + shadcn/ui-style primitives (web)
+- Next.js 15 + Tailwind 4 + shadcn/ui-style primitives (web); auth delegated to [proark1/auth](https://github.com/proark1/auth)
 - Postgres (Railway EU) + Prisma + Row-Level Security
 - Cloudflare R2 (EU) for documents *(next PR)*
 - Stripe Invoicing for monthly billing *(next PR)*
@@ -80,7 +82,9 @@ Idempotency-Key: <uuid>                required on writes (1tap retries safely)
 ```bash
 pnpm install
 cp .env.example .env
-# edit .env: set DATABASE_URL, MASTER_API_KEY, BETTER_AUTH_SECRET
+# edit .env: set DATABASE_URL, MASTER_API_KEY, and (for end-user logins)
+# AUTH_API_URL + AUTH_JWT_ISSUER + AUTH_JWT_AUDIENCE pointing at a running
+# proark1/auth instance.
 pnpm db:generate
 pnpm db:migrate
 

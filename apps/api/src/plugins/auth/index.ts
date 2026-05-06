@@ -7,10 +7,11 @@
  *      look up in api_keys for tenant-scoped keys. Master callers may
  *      attribute the request to a 1tap user via X-Actor.
  *
- *   2. Any other Bearer token: try Better Auth session verification
- *      (web app forwards a bearer token from the user's session). Actor
- *      is synthesized from the session — client-supplied X-Actor is
- *      ignored to prevent spoofing.
+ *   2. Any other Bearer token: try the external auth service (proark1/auth)
+ *      JWT verification. The web app forwards the user's access token; we
+ *      verify the signature against the service's JWKS, pin issuer +
+ *      audience, then synthesize the actor from the verified claims.
+ *      Client-supplied X-Actor is ignored to prevent spoofing.
  *
  *   3. No match: 401.
  *
@@ -58,8 +59,8 @@ export default fp(async (app) => {
       throw Errors.unauthorized();
     }
 
-    // Non-mh_ token: try Better Auth.
-    const user = await tryUser(app.prisma, req.headers);
+    // Non-mh_ token: try the external auth service JWT.
+    const user = await tryUser(app.prisma, token);
     if (user) {
       req.caller = user.caller;
       req.actor = user.actor;

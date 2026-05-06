@@ -1,19 +1,18 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { getApiClient } from "@/lib/api";
 import { getActiveOrgIdCookie, setActiveOrgIdCookie } from "@/lib/active-org";
 import { Sidebar } from "@/components/sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session) redirect("/login");
 
   const api = await getApiClient();
   if (!api) redirect("/login");
 
-  // Hydrate user (Better Auth doesn't surface isSuperAdmin via getSession in
-  // every config — pull it from /v1/me to be safe).
+  // Hydrate user from /v1/me — the JWT carries identity but the API layer
+  // may have additional fields (e.g. flags) we want to render.
   const me = await api.me.get();
   const myOrgs = await api.me.listMyOrgs();
 

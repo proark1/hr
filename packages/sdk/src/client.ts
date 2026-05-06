@@ -63,7 +63,7 @@ function qs(obj?: Record<string, string | number | undefined>): string {
  * Build a typed MyHR client.
  *
  * Auth is pluggable: pass a `getToken` that returns either a master/tenant
- * `mh_live_…` key (machine callers) or a Better Auth session token
+ * `mh_live_…` key (machine callers) or an auth-service access token (JWT)
  * (end-user callers). Pass an org context per-call or set defaults at
  * construction.
  */

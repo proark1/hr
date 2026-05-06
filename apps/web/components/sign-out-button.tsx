@@ -1,20 +1,17 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { signOut } from "@/lib/auth-client";
+import { useTransition } from "react";
+import { signOutAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
-  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   return (
     <Button
       variant="outline"
-      onClick={async () => {
-        await signOut();
-        router.push("/");
-        router.refresh();
-      }}
+      disabled={pending}
+      onClick={() => startTransition(() => signOutAction())}
     >
-      Sign out
+      {pending ? "Signing out..." : "Sign out"}
     </Button>
   );
 }

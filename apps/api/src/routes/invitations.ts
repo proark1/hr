@@ -31,9 +31,9 @@ function generateToken(): { token: string; tokenHash: string } {
 }
 
 function buildAcceptUrl(token: string): string {
-  // env.WEB_APP_URL is required when BETTER_AUTH_SECRET is set; for the
-  // master-only path we still need a URL to put in the email. Fall back
-  // to a placeholder that 1tap can replace if they prefer their own UX.
+  // For the master-only path we still need a URL to put in the email.
+  // Fall back to a localhost placeholder that 1tap can replace if they
+  // prefer their own UX.
   const base = env.WEB_APP_URL ?? "http://localhost:3000";
   return `${base.replace(/\/$/, "")}/accept-invite/${token}`;
 }
@@ -193,9 +193,9 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
 export default invitationRoutes;
 
 /**
- * Mounted at /v1/invitations (no org scoping). The invitee already has a
- * Better Auth session; they POST {token} and we materialise the membership
- * after checking the token + email match.
+ * Mounted at /v1/invitations (no org scoping). The invitee already has an
+ * auth-service session; they POST {token} and we materialise the
+ * membership after checking the token + email match.
  */
 export const invitationAcceptRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(

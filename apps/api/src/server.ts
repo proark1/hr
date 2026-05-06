@@ -154,7 +154,7 @@ export async function buildServer() {
             type: "http",
             scheme: "bearer",
             description:
-              "Better Auth session token forwarded by the web app. End-user callers send `X-Org-Id` to select which of their orgs the request targets. `X-Actor` is ignored on user-session requests (the actor is taken from the session to prevent spoofing).",
+              "Access token (JWT) issued by the external auth service (proark1/auth) and forwarded by the web app. End-user callers send `X-Org-Id` to select which of their orgs the request targets. `X-Actor` is ignored on user-session requests (the actor is taken from the session to prevent spoofing).",
           },
         },
       },
