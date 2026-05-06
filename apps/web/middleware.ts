@@ -6,6 +6,14 @@ const REFRESH_COOKIE = "myhr_refresh";
 const AUTH_API_URL = process.env.AUTH_API_URL ?? "http://localhost:9000";
 
 /**
+ * Header used to hand a freshly-rotated access token from middleware to
+ * downstream Server Components. Read by `lib/session.getSession`. Without
+ * this, server components only see request cookies (still expired) and
+ * would issue a second refresh against the auth service for every request.
+ */
+const REFRESHED_HEADER = "x-myhr-refreshed-access";
+
+/**
  * Edge middleware for protected routes.
  *
  * - Bounce to /login when no tokens are present.
@@ -35,7 +43,12 @@ export async function middleware(req: NextRequest) {
     });
     if (!res.ok) return redirectToLogin(req, /* clearCookies */ true);
     const tokens = (await res.json()) as { access_token: string; refresh_token: string };
-    const next = NextResponse.next();
+    // Forward the new access token to downstream Server Components via a
+    // request header so they don't trigger their own refresh against still-
+    // expired request cookies.
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set(REFRESHED_HEADER, tokens.access_token);
+    const next = NextResponse.next({ request: { headers: requestHeaders } });
     setAuthCookie(next, ACCESS_COOKIE, tokens.access_token, 60 * 15);
     setAuthCookie(next, REFRESH_COOKIE, tokens.refresh_token, 60 * 60 * 24 * 30);
     return next;

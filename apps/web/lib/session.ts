@@ -1,10 +1,12 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cache } from "react";
+import { cookies, headers } from "next/headers";
 import { decodeJwt } from "jose";
 import { logout as authLogout, refresh as authRefresh, type TokenPair } from "./auth-service";
 
 export const ACCESS_COOKIE = "myhr_access";
 export const REFRESH_COOKIE = "myhr_refresh";
+const REFRESHED_HEADER = "x-myhr-refreshed-access";
 
 export type SessionUser = {
   id: string;
@@ -84,18 +86,26 @@ export async function clearSessionCookies(): Promise<void> {
 /**
  * Resolve the active session.
  *
- * Reads the access token cookie; if missing or about to expire, attempts a
- * refresh using the refresh-token cookie. Refresh rotates the token pair,
- * so we persist the new values when we're called from a context that can
- * mutate cookies (server actions / route handlers). In server components
- * cookie mutation throws — we swallow the persistence step and rely on
- * middleware to refresh again on the next request.
+ * Lookup order:
+ *   1. Request header `x-myhr-refreshed-access` — set by middleware when it
+ *      just rotated the token pair. Server Components can't see cookies
+ *      that middleware writes onto the *response*, so without this hint
+ *      every request after expiry would issue a redundant refresh against
+ *      the auth service.
+ *   2. Access cookie, if still valid.
+ *   3. Refresh cookie → call `/v1/token/refresh` and persist the new pair
+ *      when the caller can mutate cookies (server actions / route
+ *      handlers); otherwise just hold the new tokens in memory and let
+ *      middleware persist on the next request.
  *
- * Returns null when there is no live session.
+ * Wrapped in `react.cache` so multiple components calling `getSession()`
+ * during one render share the result.
  */
-export async function getSession(): Promise<Session | null> {
+export const getSession = cache(async (): Promise<Session | null> => {
   const store = await cookies();
-  const access = store.get(ACCESS_COOKIE)?.value;
+  const headerStore = await headers();
+  const refreshedAccess = headerStore.get(REFRESHED_HEADER);
+  const access = refreshedAccess ?? store.get(ACCESS_COOKIE)?.value;
   const refreshToken = store.get(REFRESH_COOKIE)?.value;
 
   if (access) {
@@ -126,7 +136,7 @@ export async function getSession(): Promise<Session | null> {
     // will refresh + persist on the next request.
   }
   return { user, accessToken: pair.access_token };
-}
+});
 
 export async function endSession(): Promise<void> {
   const store = await cookies();

@@ -29,11 +29,27 @@ export async function tryUser(
     prisma,
     { orgId: null, isMaster: true, userId },
     async (tx) => {
-      await tx.user.upsert({
+      // Read first and only write when something actually changed — every
+      // authenticated request hits this path, and an unconditional upsert
+      // would generate a write (WAL, audit triggers) on every call.
+      const existing = await tx.user.findUnique({
         where: { id: userId },
-        update: { email, name, isSuperAdmin },
-        create: { id: userId, email, name, isSuperAdmin, emailVerified: true },
+        select: { email: true, name: true, isSuperAdmin: true },
       });
+      if (!existing) {
+        await tx.user.create({
+          data: { id: userId, email, name, isSuperAdmin, emailVerified: true },
+        });
+      } else if (
+        existing.email !== email ||
+        existing.name !== name ||
+        existing.isSuperAdmin !== isSuperAdmin
+      ) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { email, name, isSuperAdmin },
+        });
+      }
       return tx.orgMembership.findMany({
         where: { userId, deletedAt: null },
         select: { orgId: true, role: true },

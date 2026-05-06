@@ -9,6 +9,7 @@ import "server-only";
  */
 
 const AUTH_API_URL = process.env.AUTH_API_URL ?? "http://localhost:9000";
+const AUTH_BASE = AUTH_API_URL.endsWith("/") ? AUTH_API_URL : `${AUTH_API_URL}/`;
 
 export type TokenPair = {
   access_token: string;
@@ -40,7 +41,11 @@ async function call<T>(
   if (init.body !== undefined) headers["content-type"] = "application/json";
   if (init.bearer) headers["authorization"] = `Bearer ${init.bearer}`;
 
-  const res = await fetch(`${AUTH_API_URL}${path}`, {
+  // Strip any leading slash so `new URL` resolves against the base path
+  // rather than the host root — keeps a deployment with a path prefix
+  // (e.g. https://example.com/auth) working.
+  const url = new URL(path.replace(/^\//, ""), AUTH_BASE);
+  const res = await fetch(url, {
     method: init.method,
     headers,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,

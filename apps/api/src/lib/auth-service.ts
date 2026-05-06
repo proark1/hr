@@ -21,7 +21,11 @@ function getJwks(): ReturnType<typeof createRemoteJWKSet> | null {
     _jwks = null;
     return null;
   }
-  _jwks = createRemoteJWKSet(new URL("/.well-known/jwks.json", env.AUTH_API_URL));
+  // Append a trailing slash + use a relative path so a base URL with its
+  // own path prefix (e.g. https://example.com/auth) is preserved instead of
+  // stripped by `new URL()`'s host-root resolution.
+  const base = env.AUTH_API_URL.endsWith("/") ? env.AUTH_API_URL : `${env.AUTH_API_URL}/`;
+  _jwks = createRemoteJWKSet(new URL(".well-known/jwks.json", base));
   return _jwks;
 }
 
