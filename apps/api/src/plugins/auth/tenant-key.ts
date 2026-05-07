@@ -16,7 +16,7 @@ const lastUsedWrites = new Map<string, number>();
 /**
  * Try the tenant-scoped API key strategy.
  *
- * The first 12 chars of the token are the lookup prefix (stored on the
+ * The first PREFIX_LEN chars of the token are the lookup prefix (stored on the
  * api_keys row). We then verify the full-token hash matches the stored
  * hash with timing-safe compare. The lookup runs in master mode because
  * api_keys is master-only under RLS.
