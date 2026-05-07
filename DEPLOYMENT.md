@@ -144,6 +144,31 @@ on the detail page where you mint the first key — the plaintext is shown
 once, with a copy button. No need to embed `MASTER_API_KEY` in your browser
 session; the dashboard authenticates with your user JWT.
 
+#### Bootstrapping the first super admin
+
+`is_super_admin` is an **HR-app authorization concern**, owned by this
+service's database — not by the proark1/auth identity service. The auth
+service answers "who is this user"; HR decides "what can they do here."
+Bootstrap by flipping the column directly after the user has signed up
+once:
+
+```bash
+# After the user has signed up at https://<your-web-domain>/signup
+psql "$DATABASE_URL" -c \
+  "UPDATE users SET is_super_admin = true WHERE email = 'ops@yourcompany.com';"
+```
+
+Verify, then have them sign out and back in (so the active server-side
+session re-reads the flag on the next request):
+
+```sql
+SELECT email, is_super_admin FROM users WHERE email = 'ops@yourcompany.com';
+```
+
+Once `is_super_admin = true`, the **Super Admin** link appears in the
+sidebar. There is no auth-service change required and no JWT claim
+involved.
+
 ### Auto-syncing partners to your CRM (e.g. Supabase)
 
 If you set `PARTNER_WEBHOOK_URL` + `PARTNER_WEBHOOK_SECRET`, the API will
