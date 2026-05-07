@@ -69,10 +69,44 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
    ```bash
    echo "MASTER_API_KEY=mh_live_$(openssl rand -hex 32)"
    ```
-4. **Railway** → API service → Variables → paste `MASTER_API_KEY`, `AUTH_API_URL`, `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, plus the rest from the table.
-5. **Vercel** → `hr-web` project → Settings → Environment Variables → add the Vercel rows from the table. The auth-service vars must match Railway exactly.
-6. **Redeploy both** services so they pick up the new env.
-7. Visit your Vercel URL, sign up. The auth service emails the verification link from your branded `from_address` and points it at `https://<your-web-domain>/verify-email?token=…`. Click through, sign in, create an org. The dashboard should load.
+4. **Bootstrap the `hr_app` application role** on the Postgres DB. This is *required* — the API connects as a non-superuser at runtime so RLS enforces tenant isolation. See "Bootstrapping the hr_app application role" below before continuing.
+5. **Railway** → API service → Variables → paste `MASTER_API_KEY`, `AUTH_API_URL`, `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, plus the rest from the table. Crucially:
+   - `DATABASE_URL` = a **literal** connection string with the `hr_app` user (e.g. `postgresql://hr_app:<hex-password>@<host>:<port>/<db>`).
+   - `DIRECT_DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (the Railway reference resolves to the superuser; this is what `prisma migrate deploy` needs to ALTER schema and apply grants).
+6. **Vercel** → `hr-web` project → Settings → Environment Variables → add the Vercel rows from the table. The auth-service vars must match Railway exactly.
+7. **Redeploy both** services so they pick up the new env.
+8. Visit your Vercel URL, sign up. The auth service emails the verification link from your branded `from_address` and points it at `https://<your-web-domain>/verify-email?token=…`. Click through, sign in, create an org. The dashboard should load.
+
+### Bootstrapping the `hr_app` application role
+
+The schema's tenant isolation relies on Postgres Row-Level Security being *enforced*, not just *defined*. Postgres superusers bypass RLS even when `FORCE` is set — so if `DATABASE_URL` connects as `postgres` (Railway's default), every `tenant_self` and `partner_self` policy is silently ignored, and a partner can read every other partner's orgs.
+
+Fix: have the API connect as a non-superuser role (`hr_app`) at runtime. Migrations still run as the superuser (via `DIRECT_DATABASE_URL`).
+
+**One-time setup, run from a `psql` shell connected as the superuser:**
+
+```sql
+-- Create the role with a fresh, URL-safe password.
+-- Generate with `openssl rand -hex 32` from your shell — hex avoids URL-
+-- encoding gotchas (no `/`, `+`, `=` to escape).
+CREATE ROLE hr_app
+  WITH LOGIN NOSUPERUSER NOBYPASSRLS
+  PASSWORD '<paste-the-hex-string>';
+```
+
+The migration `20260507120000_hr_app_role_grants` (auto-applied on the next deploy via `prisma migrate deploy`) handles all the GRANTs idempotently — `CONNECT` on the database, `USAGE` + table/sequence privileges on `public` and `pgboss`, plus `ALTER DEFAULT PRIVILEGES` so future migrations don't need re-granting.
+
+Then set `DATABASE_URL` on the API service to the literal connection string:
+
+```
+postgresql://hr_app:<the-same-hex-password>@<host>:<port>/<db>
+```
+
+(Find host/port/db by revealing `${{Postgres.DATABASE_URL}}` on the Postgres service — copy host/port/db from there, swap user+password.)
+
+**⚠️ Common pitfall — Railway's web query console silently rolls back DDL.** If you try to run the GRANT statements in Railway's database UI, "Query ran successfully" appears but nothing persists. Use a real `psql` client (your terminal, the Railway CLI, etc.) for any role/grant management.
+
+**Verify after the next deploy:** sign in as a partner-keyed integrator and `GET /v1/orgs`. The response should list only orgs that integrator provisioned. If you see orgs with `partner_id: null` (the operator's own orgs), `DATABASE_URL` is still pointing at the superuser — go back and fix it.
 
 ## Onboarding a partner (multi-master integrator)
 

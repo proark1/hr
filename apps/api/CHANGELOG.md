@@ -13,6 +13,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Migration `20260507120000_hr_app_role_grants`** — codifies the GRANTs
+  the application role (`hr_app`) needs at runtime so a fresh deploy
+  doesn't silently end up running as a superuser (which bypasses every
+  RLS policy and turns tenant isolation into theatre). Idempotent;
+  re-applies safely on every `prisma migrate deploy`. Operator must
+  pre-create the role itself (`CREATE ROLE hr_app WITH LOGIN
+  NOSUPERUSER NOBYPASSRLS PASSWORD '...'`) — the migration fails loud
+  with a clear "see DEPLOYMENT.md" message if `hr_app` doesn't exist
+  yet, rather than half-running. Future migrations get covered by
+  `ALTER DEFAULT PRIVILEGES` so this never has to be revisited as the
+  schema grows. See `DEPLOYMENT.md` → "Bootstrapping the hr_app
+  application role" for the full setup procedure.
 - **Super Admin → Partners dashboard.** The `/v1/partners*` endpoints,
   previously root-master-only, now also accept user-session callers with
   `is_super_admin = true`. Pairs with a new web UI at

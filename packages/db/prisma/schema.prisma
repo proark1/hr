@@ -13,10 +13,10 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
-  directUrl         = env("DIRECT_DATABASE_URL")
-  extensions        = [pgcrypto, citext]
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_DATABASE_URL")
+  extensions = [pgcrypto, citext]
 }
 
 // -- Tenants -----------------------------------------------------------------
@@ -70,7 +70,7 @@ model Org {
   reviews         PerformanceReview[]
   companyProfile  CompanyProfile?
   settings        OrgSettings?
-  partner         Partner?         @relation(fields: [partnerId], references: [id])
+  partner         Partner?            @relation(fields: [partnerId], references: [id])
 
   @@index([partnerId])
   @@map("orgs")
@@ -92,17 +92,17 @@ enum PartnerStatus {
 }
 
 model Partner {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   // Human-readable label, e.g. "OneTap.ai". Not used for auth.
-  name        String
-  status      PartnerStatus @default(active)
+  name         String
+  status       PartnerStatus @default(active)
   // Free-form contact info shown in the operator dashboard. Never sent
   // to the partner's own callers.
-  contactEmail String?      @map("contact_email")
-  notes       String?
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  suspendedAt DateTime?     @map("suspended_at")
+  contactEmail String?       @map("contact_email")
+  notes        String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  suspendedAt  DateTime?     @map("suspended_at")
 
   apiKeys ApiKey[]
   orgs    Org[]
@@ -124,21 +124,21 @@ enum ApiKeyScope {
 }
 
 model ApiKey {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  scope       ApiKeyScope
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope      ApiKeyScope
   // Exactly one of (orgId, partnerId) is non-null at a time:
   //   scope=tenant  → orgId set, partnerId null
   //   scope=partner → partnerId set, orgId null
   //   scope=master  → both null (reserved)
   // Enforced by a CHECK constraint in the SQL migration.
-  orgId       String?      @map("org_id") @db.Uuid
-  partnerId   String?      @map("partner_id") @db.Uuid
-  name        String
-  prefix      String       @unique // e.g. "mh_live_abcd1234efgh" (first 24 chars, for display + lookup; see PREFIX_LEN in @myhr/types)
-  hash        String       // sha256(secret), hex
-  lastUsedAt  DateTime?    @map("last_used_at")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  revokedAt   DateTime?    @map("revoked_at")
+  orgId      String?     @map("org_id") @db.Uuid
+  partnerId  String?     @map("partner_id") @db.Uuid
+  name       String
+  prefix     String      @unique // e.g. "mh_live_abcd1234efgh" (first 24 chars, for display + lookup; see PREFIX_LEN in @myhr/types)
+  hash       String // sha256(secret), hex
+  lastUsedAt DateTime?   @map("last_used_at")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  revokedAt  DateTime?   @map("revoked_at")
 
   org     Org?     @relation(fields: [orgId], references: [id])
   partner Partner? @relation(fields: [partnerId], references: [id])
@@ -183,7 +183,7 @@ model Employee {
   updatedAt     DateTime        @updatedAt @map("updated_at")
   deletedAt     DateTime?       @map("deleted_at")
 
-  org      Org        @relation(fields: [orgId], references: [id])
+  org             Org                 @relation(fields: [orgId], references: [id])
   // Composite FK (managerId, orgId) → (id, orgId). Enforced at the DB level
   // so a manager cannot reference an employee from a different tenant — FK
   // checks bypass RLS, so the orgId in the FK is the only place this is
@@ -208,10 +208,10 @@ model AuditEvent {
   id         BigInt   @id @default(autoincrement())
   orgId      String?  @map("org_id") @db.Uuid
   actorType  String   @map("actor_type") // "master" | "tenant" | "system"
-  actorId    String?  @map("actor_id")   // user id from X-Actor header (master callers) or session (user callers)
+  actorId    String?  @map("actor_id") // user id from X-Actor header (master callers) or session (user callers)
   actorEmail String?  @map("actor_email")
-  action     String   // "employee.created", "employee.read", ...
-  resource   String?  // "employee:<uuid>"
+  action     String // "employee.created", "employee.read", ...
+  resource   String? // "employee:<uuid>"
   ip         String?
   userAgent  String?  @map("user_agent")
   metadata   Json?
@@ -249,16 +249,16 @@ model IdempotencyKey {
 // -- Webhooks ----------------------------------------------------------------
 
 model WebhookEndpoint {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId      String?  @map("org_id") @db.Uuid // null = master-level (reserved; v1 only ships org-scoped)
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId      String?   @map("org_id") @db.Uuid // null = master-level (reserved; v1 only ships org-scoped)
   url        String
   events     String[] // e.g. ["employee.created", "leave.approved"]
-  secret     String   // hmac signing secret for this endpoint
+  secret     String // hmac signing secret for this endpoint
   disabledAt DateTime? @map("disabled_at")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  org        Org?               @relation(fields: [orgId], references: [id])
+  org        Org?              @relation(fields: [orgId], references: [id])
   deliveries WebhookDelivery[]
 
   @@index([orgId])
@@ -323,7 +323,7 @@ model User {
   sessions    Session[]
   accounts    Account[]
   memberships OrgMembership[]
-  invitations Invitation[]   @relation("InvitedBy")
+  invitations Invitation[]    @relation("InvitedBy")
 
   @@map("users")
 }
@@ -347,8 +347,8 @@ model Session {
 
 model Account {
   id                    String    @id
-  accountId             String    @map("account_id")   // provider's user id
-  providerId            String    @map("provider_id")  // "credential" | "google" | ...
+  accountId             String    @map("account_id") // provider's user id
+  providerId            String    @map("provider_id") // "credential" | "google" | ...
   userId                String    @map("user_id")
   accessToken           String?   @map("access_token")
   refreshToken          String?   @map("refresh_token")
@@ -356,7 +356,7 @@ model Account {
   accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
   refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
   scope                 String?
-  password              String?   // bcrypt hash for email/password provider
+  password              String? // bcrypt hash for email/password provider
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
@@ -369,7 +369,7 @@ model Account {
 
 model Verification {
   id         String   @id
-  identifier String   // email being verified, or password reset key, ...
+  identifier String // email being verified, or password reset key, ...
   value      String
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -480,22 +480,22 @@ enum DocumentType {
 }
 
 model Document {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId       String       @map("org_id") @db.Uuid
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId      String       @map("org_id") @db.Uuid
   /// null = org-level document (handbook, policy). Otherwise tied to an employee.
-  employeeId  String?      @map("employee_id") @db.Uuid
-  name        String
-  type        DocumentType @default(other)
+  employeeId String?      @map("employee_id") @db.Uuid
+  name       String
+  type       DocumentType @default(other)
   /// Externally-hosted URL or storage pointer. We don't host blobs in this MVP.
-  fileUrl     String?      @map("file_url")
-  mimeType    String?      @map("mime_type")
-  sizeBytes   Int?         @map("size_bytes")
-  expiresAt   DateTime?    @map("expires_at")
-  notes       String?
-  uploadedBy  String?      @map("uploaded_by") // user id
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  deletedAt   DateTime?    @map("deleted_at")
+  fileUrl    String?      @map("file_url")
+  mimeType   String?      @map("mime_type")
+  sizeBytes  Int?         @map("size_bytes")
+  expiresAt  DateTime?    @map("expires_at")
+  notes      String?
+  uploadedBy String?      @map("uploaded_by") // user id
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+  deletedAt  DateTime?    @map("deleted_at")
 
   org      Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -515,21 +515,21 @@ enum ReviewStatus {
 }
 
 model PerformanceReview {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String       @map("org_id") @db.Uuid
-  employeeId   String       @map("employee_id") @db.Uuid
-  reviewerId   String       @map("reviewer_id") // user id of the reviewer
-  periodStart  DateTime     @map("period_start") @db.Date
-  periodEnd    DateTime     @map("period_end") @db.Date
-  status       ReviewStatus @default(draft)
-  rating       Int?         // optional 1..5
-  summary      String?
-  strengths    String?
-  growthAreas  String?      @map("growth_areas")
-  goals        String?
-  publishedAt  DateTime?    @map("published_at")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId       String       @map("org_id") @db.Uuid
+  employeeId  String       @map("employee_id") @db.Uuid
+  reviewerId  String       @map("reviewer_id") // user id of the reviewer
+  periodStart DateTime     @map("period_start") @db.Date
+  periodEnd   DateTime     @map("period_end") @db.Date
+  status      ReviewStatus @default(draft)
+  rating      Int? // optional 1..5
+  summary     String?
+  strengths   String?
+  growthAreas String?      @map("growth_areas")
+  goals       String?
+  publishedAt DateTime?    @map("published_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
 
   org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   employee Employee @relation("ReviewSubject", fields: [employeeId], references: [id], onDelete: Cascade)
@@ -542,21 +542,21 @@ model PerformanceReview {
 // -- Company profile (singleton per org) ------------------------------------
 
 model CompanyProfile {
-  orgId         String   @id @map("org_id") @db.Uuid
-  legalName     String?  @map("legal_name")
-  displayName   String?  @map("display_name")
-  taxId         String?  @map("tax_id")
-  websiteUrl    String?  @map("website_url")
-  supportEmail  String?  @map("support_email")
-  logoUrl       String?  @map("logo_url")
-  addressLine1  String?  @map("address_line1")
-  addressLine2  String?  @map("address_line2")
-  city          String?
-  region        String?
-  postalCode    String?  @map("postal_code")
-  country       String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  orgId        String   @id @map("org_id") @db.Uuid
+  legalName    String?  @map("legal_name")
+  displayName  String?  @map("display_name")
+  taxId        String?  @map("tax_id")
+  websiteUrl   String?  @map("website_url")
+  supportEmail String?  @map("support_email")
+  logoUrl      String?  @map("logo_url")
+  addressLine1 String?  @map("address_line1")
+  addressLine2 String?  @map("address_line2")
+  city         String?
+  region       String?
+  postalCode   String?  @map("postal_code")
+  country      String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -566,15 +566,15 @@ model CompanyProfile {
 // -- Org settings (singleton per org) ---------------------------------------
 
 model OrgSettings {
-  orgId              String   @id @map("org_id") @db.Uuid
-  defaultCountry     String?  @map("default_country")
-  weekStartsOn       Int      @default(1) @map("week_starts_on") // 0=Sun..6=Sat
-  dateFormat         String   @default("YYYY-MM-DD") @map("date_format")
-  timezone           String   @default("UTC")
-  locale             String   @default("en-US")
-  fiscalYearStartMonth Int    @default(1) @map("fiscal_year_start_month")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  orgId                String   @id @map("org_id") @db.Uuid
+  defaultCountry       String?  @map("default_country")
+  weekStartsOn         Int      @default(1) @map("week_starts_on") // 0=Sun..6=Sat
+  dateFormat           String   @default("YYYY-MM-DD") @map("date_format")
+  timezone             String   @default("UTC")
+  locale               String   @default("en-US")
+  fiscalYearStartMonth Int      @default(1) @map("fiscal_year_start_month")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
