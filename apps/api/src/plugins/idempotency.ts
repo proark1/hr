@@ -24,6 +24,7 @@ function callerFingerprint(req: FastifyRequest): string {
   const c = req.caller;
   if (!c) return "anon";
   if (c.type === "master") return `master:${c.keyId ?? "env"}`;
+  if (c.type === "partner") return `partner:${c.partnerId}:${c.keyId}`;
   if (c.type === "tenant_key") return `tenant:${c.keyId}`;
   return `user:${c.userId}`;
 }

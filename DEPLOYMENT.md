@@ -47,7 +47,7 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 |---|---|---|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (Reference) | Internal Railway URL — fast, doesn't egress. |
 | `DIRECT_DATABASE_URL` | same | |
-| `MASTER_API_KEY` | `mh_live_$(openssl rand -hex 32)` | The operator's bootstrap credential — used by your backend for cross-tenant calls. Share out-of-band; rotate by issuing a new one and updating the env. |
+| `MASTER_API_KEY` | `mh_live_$(openssl rand -hex 32)` | **Root master** — operator-only break-glass credential. Cross-everything; the only credential able to create or revoke partners. Do **not** share with integrators; mint them partner keys instead (see "Onboarding a partner" below). Rotate by issuing a new one and updating the env. |
 | `AUTH_API_URL` | same as Vercel `AUTH_API_URL` | Used to fetch the JWKS for verifying access tokens. |
 | `AUTH_CLIENT_ID` | same as Vercel `AUTH_CLIENT_ID` | Used to call `/v1/clients/me` at boot to discover the audience. |
 | `AUTH_CLIENT_SECRET` | same as Vercel `AUTH_CLIENT_SECRET` | Same purpose. Store as a Railway secret. |
@@ -71,6 +71,67 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 5. **Vercel** → `hr-web` project → Settings → Environment Variables → add the Vercel rows from the table. The auth-service vars must match Railway exactly.
 6. **Redeploy both** services so they pick up the new env.
 7. Visit your Vercel URL, sign up. The auth service emails the verification link from your branded `from_address` and points it at `https://<your-web-domain>/verify-email?token=…`. Click through, sign in, create an org. The dashboard should load.
+
+## Onboarding a partner (multi-master integrator)
+
+When a SaaS integrator like OneTap.ai wants to provision HR orgs for many of
+their own customers, give them a **partner key** rather than the root master.
+Each partner is RLS-isolated from every other partner — they can only see
+the orgs they themselves provisioned.
+
+```bash
+# 1. Create the Partner record (root master only)
+curl -X POST https://<api-domain>/v1/partners \
+  -H "Authorization: Bearer $MASTER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"name":"OneTap.ai","contactEmail":"ops@onetap.ai"}'
+# → { "id": "<partner-uuid>", ... }
+
+# 2. Mint a partner key (root master only). Plaintext is shown ONCE.
+curl -X POST https://<api-domain>/v1/partners/<partner-uuid>/keys \
+  -H "Authorization: Bearer $MASTER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"name":"prod-key-2026"}'
+# → { "key": "mh_live_...", "id": "<key-uuid>", ... }
+
+# 3. Hand the plaintext `key` to OneTap out-of-band (1Password, Vault, …).
+#    From now on, OneTap uses ONLY this key — never the root master.
+```
+
+Partner-side usage is identical to the root master pattern, but scoped:
+
+```bash
+# OneTap provisions an org for one of THEIR customers
+curl -X POST https://<api-domain>/v1/orgs \
+  -H "Authorization: Bearer $ONETAP_PARTNER_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"name":"Acme Inc","region":"eu"}'
+# → org is tagged with partner_id; only OneTap (and root master) can see it.
+
+# OneTap then operates inside that org with X-Tenant-Id
+curl -X POST https://<api-domain>/v1/employees \
+  -H "Authorization: Bearer $ONETAP_PARTNER_KEY" \
+  -H "X-Tenant-Id: <org-uuid>" \
+  -H "X-Actor: {\"email\":\"founder@acme.com\"}" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{...}'
+```
+
+**Rotation**: mint a new key (step 2), distribute, then revoke the old one:
+```bash
+curl -X DELETE https://<api-domain>/v1/partners/<partner-uuid>/keys/<old-key-id> \
+  -H "Authorization: Bearer $MASTER_API_KEY" \
+  -H "Idempotency-Key: $(uuidgen)"
+```
+Other partners are completely unaffected — that's the whole point of the
+multi-partner design.
+
+**Suspension** (e.g. compromise, contract dispute): `PATCH /v1/partners/{id}`
+with `{"status":"suspended"}` immediately blocks every key for that partner
+at auth time without revoking individual keys. Re-activate with `{"status":"active"}`.
 
 ## Custom domain (optional)
 

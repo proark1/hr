@@ -5,6 +5,7 @@ export * from "./user.js";
 export * from "./membership.js";
 export * from "./invitation.js";
 export * from "./api-key.js";
+export * from "./partner.js";
 export * from "./webhook.js";
 export * from "./time-off.js";
 export * from "./document.js";

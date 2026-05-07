@@ -40,6 +40,14 @@ const SDK_METHODS: Record<string, string> = {
   getOrg: "orgs.get",
   updateOrg: "orgs.update",
 
+  createPartner: "partners.create",
+  listPartners: "partners.list",
+  getPartner: "partners.get",
+  updatePartner: "partners.update",
+  createPartnerKey: "partners.keys.create",
+  listPartnerKeys: "partners.keys.list",
+  revokePartnerKey: "partners.keys.revoke",
+
   listMembers: "members.list",
 
   createInvitation: "invitations.create",

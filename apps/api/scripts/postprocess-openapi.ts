@@ -35,7 +35,10 @@ type Method = (typeof HTTP_METHODS)[number];
  * 204 entry into the spec. Any operationId in this set must NOT also declare a
  * 2xx response in its route schema.
  */
-const NO_CONTENT_OPERATIONS = new Set<string>(["deleteWebhookEndpoint"]);
+const NO_CONTENT_OPERATIONS = new Set<string>([
+  "deleteWebhookEndpoint",
+  "revokePartnerKey",
+]);
 
 const TAG_GROUPS: Array<{ name: string; tags: string[] }> = [
   { name: "Public API", tags: ["Employees", "Orgs", "Members", "Invitations"] },
@@ -57,6 +60,20 @@ const SDK_CALLS: Record<string, (args: { fixture: OperationFixture }) => string>
   getOrg: () => `await myhr.orgs.get("${SAMPLES.orgId}");`,
   updateOrg: ({ fixture }) =>
     `await myhr.orgs.update("${SAMPLES.orgId}", ${j(fixture.body)});`,
+
+  // Partners
+  createPartner: ({ fixture }) =>
+    `await myhr.partners.create(${j(fixture.body)});`,
+  listPartners: () => `await myhr.partners.list({ limit: 50 });`,
+  getPartner: () => `await myhr.partners.get("${SAMPLES.partnerId}");`,
+  updatePartner: ({ fixture }) =>
+    `await myhr.partners.update("${SAMPLES.partnerId}", ${j(fixture.body)});`,
+  createPartnerKey: ({ fixture }) =>
+    `await myhr.partners.keys.create("${SAMPLES.partnerId}", ${j(fixture.body)});`,
+  listPartnerKeys: () =>
+    `await myhr.partners.keys.list("${SAMPLES.partnerId}");`,
+  revokePartnerKey: () =>
+    `await myhr.partners.keys.revoke("${SAMPLES.partnerId}", "${SAMPLES.partnerKeyId}");`,
 
   // Members
   listMembers: () => `await myhr.members.list();`,

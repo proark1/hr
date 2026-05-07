@@ -12,6 +12,12 @@ import type {
   ApiKey,
   ApiKeyCreate,
   ApiKeyCreated,
+  Partner,
+  PartnerCreate,
+  PartnerUpdate,
+  PartnerKey,
+  PartnerKeyCreate,
+  PartnerKeyCreated,
   Employee,
   EmployeeCreate,
   EmployeeUpdate,
@@ -134,7 +140,9 @@ export function createClient(config: ClientConfig) {
       listMyOrgs: () => request<{ items: MyOrg[] }>("GET", "/v1/me/orgs"),
     },
 
-    /** Tenant orgs. POST accepts both master and user callers. */
+    /** Tenant orgs. POST accepts root-master, partner, and user callers.
+     *  GET / GET-by-id / PATCH accept root-master and partner (partners are
+     *  RLS-isolated to the orgs they themselves provisioned). */
     orgs: {
       list: (q?: { cursor?: string; limit?: number }) =>
         request<Page<Org>>("GET", `/v1/orgs${qs(q)}`),
@@ -144,6 +152,40 @@ export function createClient(config: ClientConfig) {
         request<Org>("GET", `/v1/orgs/${id}`, { ctx }),
       update: (id: string, body: OrgUpdate, ctx?: CallerContext) =>
         request<Org>("PATCH", `/v1/orgs/${id}`, { body, ctx }),
+    },
+
+    /** Partners (operator-only). External SaaS integrators that provision
+     *  HR orgs on behalf of their own customers. Each partner is
+     *  RLS-isolated from every other partner. */
+    partners: {
+      create: (body: PartnerCreate, ctx?: CallerContext) =>
+        request<Partner>("POST", "/v1/partners", { body, ctx }),
+      list: (q?: { cursor?: string; limit?: number }) =>
+        request<Page<Partner>>("GET", `/v1/partners${qs(q)}`),
+      get: (id: string, ctx?: CallerContext) =>
+        request<Partner>("GET", `/v1/partners/${id}`, { ctx }),
+      update: (id: string, body: PartnerUpdate, ctx?: CallerContext) =>
+        request<Partner>("PATCH", `/v1/partners/${id}`, { body, ctx }),
+      keys: {
+        create: (partnerId: string, body: PartnerKeyCreate, ctx?: CallerContext) =>
+          request<PartnerKeyCreated>(
+            "POST",
+            `/v1/partners/${partnerId}/keys`,
+            { body, ctx },
+          ),
+        list: (partnerId: string, ctx?: CallerContext) =>
+          request<{ items: PartnerKey[] }>(
+            "GET",
+            `/v1/partners/${partnerId}/keys`,
+            { ctx },
+          ),
+        revoke: (partnerId: string, keyId: string, ctx?: CallerContext) =>
+          request<void>(
+            "DELETE",
+            `/v1/partners/${partnerId}/keys/${keyId}`,
+            { ctx },
+          ),
+      },
     },
 
     /** Per-org memberships. */

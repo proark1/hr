@@ -1,9 +1,15 @@
 /**
  * Caller + Actor types for the API auth layer.
  *
- * Three caller types:
- *   - master:     The operator's bootstrap API key (env MASTER_API_KEY).
- *                 One per deployment; cross-tenant.
+ * Four caller types:
+ *   - master:     Root master — the operator's bootstrap API key (env
+ *                 MASTER_API_KEY). One per deployment; cross-everything.
+ *                 Only tier that can create or revoke partners.
+ *   - partner:    DB-backed key for an external SaaS integrator (e.g.
+ *                 OneTap.ai) that provisions HR orgs for their own
+ *                 customers. Cross-tenant within the orgs the owning
+ *                 partner provisioned, and no further. Created and
+ *                 rotated by the operator (no self-service rotation).
  *   - tenant_key: org-scoped API key minted from the dashboard. Caller's
  *                 orgId is fixed by the key.
  *   - user:       Access token (JWT) issued by the external auth service
@@ -16,6 +22,7 @@ import type { MembershipRole } from "@myhr/db";
 
 export type Caller =
   | { type: "master"; keyId: string | null }
+  | { type: "partner"; keyId: string; partnerId: string }
   | { type: "tenant_key"; keyId: string; orgId: string }
   | {
       type: "user";

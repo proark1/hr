@@ -1,19 +1,18 @@
 /**
  * Auth plugin (orchestrator).
  *
- * Three caller strategies tried in order:
+ * Caller strategies for `mh_`-prefixed Bearer tokens, tried in order:
  *
- *   1. Bearer token starting with "mh_": try master env match first, then
- *      look up in api_keys for tenant-scoped keys. Master callers may
- *      attribute the request to a specific user via X-Actor.
+ *   1. Root master env match (cheapest — no DB hit). Honors X-Actor for
+ *      audit attribution (operator is trusted to assert an actor).
+ *   2. Partner key: api_keys row with scope='partner'. Owning partner
+ *      must be `active`. X-Actor honored — partners are trusted machine
+ *      callers attributing actions to their own end users.
+ *   3. Tenant key: api_keys row with scope='tenant'. X-Actor ignored.
  *
- *   2. Any other Bearer token: try the external auth service (proark1/auth)
- *      JWT verification. The web app forwards the user's access token; we
- *      verify the signature against the service's JWKS, pin issuer +
- *      audience, then synthesize the actor from the verified claims.
- *      Client-supplied X-Actor is ignored to prevent spoofing.
- *
- *   3. No match: 401.
+ * For non-`mh_` Bearer tokens, defers to the external auth service
+ * (proark1/auth) JWT path; X-Actor ignored (the JWT is the source of
+ * truth for actor identity).
  *
  * The orchestrator stays small; each strategy lives in its own file.
  */
@@ -24,6 +23,7 @@ import { reqPath } from "../../lib/path.js";
 import type { Caller, Actor } from "./types.js";
 import { API_KEY_PREFIX } from "./shared.js";
 import { tryMaster, parseMasterActor } from "./master.js";
+import { tryPartnerKey } from "./partner.js";
 import { tryTenantKey } from "./tenant-key.js";
 import { tryUser } from "./user.js";
 
@@ -42,14 +42,21 @@ export default fp(async (app) => {
     if (!token) throw Errors.unauthorized();
 
     if (token.startsWith(API_KEY_PREFIX)) {
-      // Master takes precedence — env-var compare, no DB hit.
+      // Root master takes precedence — env-var compare, no DB hit.
       const master = tryMaster(token);
       if (master) {
         req.caller = master;
         req.actor = parseMasterActor(req.headers["x-actor"]);
         return;
       }
-      // Fall through to tenant-key lookup.
+      // Then partner keys (cross-tenant within partner-owned orgs).
+      const partner = await tryPartnerKey(app.prisma, token);
+      if (partner) {
+        req.caller = partner;
+        req.actor = parseMasterActor(req.headers["x-actor"]);
+        return;
+      }
+      // Then tenant-scoped keys (single-org).
       const tenant = await tryTenantKey(app.prisma, token);
       if (tenant) {
         req.caller = tenant;

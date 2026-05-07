@@ -51,6 +51,7 @@ const superAdminRoutes: FastifyPluginAsyncZod = async (app) => {
           name: o.name,
           region: o.region,
           status: o.status,
+          partnerId: o.partnerId,
           createdAt: o.createdAt.toISOString(),
           updatedAt: o.updatedAt.toISOString(),
         })),

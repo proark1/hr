@@ -10,7 +10,12 @@
       "masterApiKey": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Master API key (env `MASTER_API_KEY`) — the operator's bootstrap credential. Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls."
+        "description": "Root master API key (env `MASTER_API_KEY`) — the operator's bootstrap credential. Sent as `Authorization: Bearer mh_live_…`. Cross-everything; only credential able to create or revoke partners. Master callers must send `X-Tenant-Id` to scope tenant-specific calls."
+      },
+      "partnerApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Partner API key minted by the operator. Sent as `Authorization: Bearer mh_live_…`. Authenticates as a Partner; cross-tenant within the orgs the owning Partner provisioned (RLS-isolated from every other Partner). Send `X-Tenant-Id` to scope tenant-specific calls; `X-Actor` honored for audit attribution."
       },
       "tenantApiKey": {
         "type": "http",
@@ -454,6 +459,11 @@
                                   "deleted"
                                 ]
                               },
+                              "partnerId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              },
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time"
@@ -468,6 +478,7 @@
                               "name",
                               "region",
                               "status",
+                              "partnerId",
                               "createdAt",
                               "updatedAt"
                             ],
@@ -509,6 +520,7 @@
                         "name": "Acme Inc",
                         "region": "eu",
                         "status": "active",
+                        "partnerId": null,
                         "createdAt": "2026-05-04T12:00:00.000Z",
                         "updatedAt": "2026-05-04T12:00:00.000Z"
                       },
@@ -705,11 +717,11 @@
     "/v1/orgs": {
       "get": {
         "operationId": "listOrgs",
-        "summary": "List orgs (master only)",
+        "summary": "List orgs (root master + partner)",
         "tags": [
           "Orgs"
         ],
-        "description": "Lists all tenant orgs. Restricted to the master integrator.",
+        "description": "Lists tenant orgs. Root master sees every org on the deployment. Partner callers see only the orgs they themselves provisioned (RLS-isolated from every other partner).",
         "parameters": [
           {
             "schema": {
@@ -738,12 +750,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           }
         ],
         "responses": {
@@ -781,6 +796,11 @@
                               "deleted"
                             ]
                           },
+                          "partnerId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time"
@@ -795,6 +815,7 @@
                           "name",
                           "region",
                           "status",
+                          "partnerId",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -819,6 +840,7 @@
                       "name": "Acme Inc",
                       "region": "eu",
                       "status": "active",
+                      "partnerId": null,
                       "createdAt": "2026-05-04T12:00:00.000Z",
                       "updatedAt": "2026-05-04T12:00:00.000Z"
                     }
@@ -1056,7 +1078,7 @@
         "tags": [
           "Orgs"
         ],
-        "description": "Provisions a new tenant org. Master callers provision on behalf of a tenant. End-user callers create their own org and become `owner`.",
+        "description": "Provisions a new tenant org. Root master and partner callers provision on behalf of a tenant (partner-created orgs are tagged with the partner id). End-user callers create their own org and become `owner`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1099,7 +1121,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -1118,7 +1140,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -1135,6 +1157,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "userSession": []
@@ -1170,6 +1195,11 @@
                         "deleted"
                       ]
                     },
+                    "partnerId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -1184,6 +1214,7 @@
                     "name",
                     "region",
                     "status",
+                    "partnerId",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -1194,6 +1225,7 @@
                   "name": "Acme Inc",
                   "region": "eu",
                   "status": "active",
+                  "partnerId": null,
                   "createdAt": "2026-05-04T12:00:00.000Z",
                   "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
@@ -1467,11 +1499,11 @@
     "/v1/orgs/{id}": {
       "get": {
         "operationId": "getOrg",
-        "summary": "Get org (master only)",
+        "summary": "Get org (root master + partner)",
         "tags": [
           "Orgs"
         ],
-        "description": "Returns a single tenant org by id.",
+        "description": "Returns a single tenant org by id. Root master sees every org; partners see only the orgs they themselves provisioned (404 otherwise).",
         "parameters": [
           {
             "schema": {
@@ -1490,12 +1522,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           }
         ],
         "responses": {
@@ -1528,6 +1563,11 @@
                         "deleted"
                       ]
                     },
+                    "partnerId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -1542,6 +1582,7 @@
                     "name",
                     "region",
                     "status",
+                    "partnerId",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -1552,6 +1593,7 @@
                   "name": "Acme Inc",
                   "region": "eu",
                   "status": "active",
+                  "partnerId": null,
                   "createdAt": "2026-05-04T12:00:00.000Z",
                   "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
@@ -1823,11 +1865,11 @@
       },
       "patch": {
         "operationId": "updateOrg",
-        "summary": "Update org (master only)",
+        "summary": "Update org (root master + partner)",
         "tags": [
           "Orgs"
         ],
-        "description": "Partially updates a tenant org.",
+        "description": "Partially updates a tenant org. Root master can update any org; partners can update only orgs they themselves provisioned.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1894,12 +1936,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           }
         ],
         "responses": {
@@ -1932,6 +1977,11 @@
                         "deleted"
                       ]
                     },
+                    "partnerId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -1946,6 +1996,7 @@
                     "name",
                     "region",
                     "status",
+                    "partnerId",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -1956,6 +2007,7 @@
                   "name": "Acme Holdings GmbH",
                   "region": "eu",
                   "status": "active",
+                  "partnerId": null,
                   "createdAt": "2026-05-04T12:00:00.000Z",
                   "updatedAt": "2026-05-04T12:00:00.000Z"
                 }
@@ -2267,6 +2319,2684 @@
         ]
       }
     },
+    "/v1/partners": {
+      "post": {
+        "operationId": "createPartner",
+        "summary": "Create partner (root master only)",
+        "tags": [
+          "Partners"
+        ],
+        "description": "Provisions a new Partner — an external SaaS integrator that will provision HR orgs on behalf of their own customers. Returns the partner record; mint keys via POST /v1/partners/:id/keys.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "contactEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              "example": {
+                "name": "OneTap.ai",
+                "contactEmail": "ops@onetap.ai"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "suspended"
+                      ]
+                    },
+                    "contactEmail": {
+                      "type": "string",
+                      "format": "email",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "suspendedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "status",
+                    "contactEmail",
+                    "notes",
+                    "createdAt",
+                    "updatedAt",
+                    "suspendedAt"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "id": "33333333-4444-5555-6666-777777777777",
+                  "name": "OneTap.ai",
+                  "status": "active",
+                  "contactEmail": "ops@onetap.ai",
+                  "notes": null,
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z",
+                  "suspendedAt": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or request shape error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is authenticated but not allowed to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/partners' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"OneTap.ai\",\"contactEmail\":\"ops@onetap.ai\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.partners.create({\n  \"name\": \"OneTap.ai\",\n  \"contactEmail\": \"ops@onetap.ai\"\n});"
+          }
+        ]
+      },
+      "get": {
+        "operationId": "listPartners",
+        "summary": "List partners (root master only)",
+        "tags": [
+          "Partners"
+        ],
+        "description": "Returns every Partner registered on this deployment.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "example": 50
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "suspended"
+                            ]
+                          },
+                          "contactEmail": {
+                            "type": "string",
+                            "format": "email",
+                            "nullable": true
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "suspendedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "status",
+                          "contactEmail",
+                          "notes",
+                          "createdAt",
+                          "updatedAt",
+                          "suspendedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "33333333-4444-5555-6666-777777777777",
+                      "name": "OneTap.ai",
+                      "status": "active",
+                      "contactEmail": "ops@onetap.ai",
+                      "notes": null,
+                      "createdAt": "2026-05-04T12:00:00.000Z",
+                      "updatedAt": "2026-05-04T12:00:00.000Z",
+                      "suspendedAt": null
+                    }
+                  ],
+                  "nextCursor": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or request shape error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is authenticated but not allowed to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/partners?limit=50' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.partners.list({ limit: 50 });"
+          }
+        ]
+      }
+    },
+    "/v1/partners/{id}": {
+      "get": {
+        "operationId": "getPartner",
+        "summary": "Get partner (root master only)",
+        "tags": [
+          "Partners"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "example": "33333333-4444-5555-6666-777777777777"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "suspended"
+                      ]
+                    },
+                    "contactEmail": {
+                      "type": "string",
+                      "format": "email",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "suspendedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "status",
+                    "contactEmail",
+                    "notes",
+                    "createdAt",
+                    "updatedAt",
+                    "suspendedAt"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "id": "33333333-4444-5555-6666-777777777777",
+                  "name": "OneTap.ai",
+                  "status": "active",
+                  "contactEmail": "ops@onetap.ai",
+                  "notes": null,
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z",
+                  "suspendedAt": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or request shape error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is authenticated but not allowed to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/partners/33333333-4444-5555-6666-777777777777' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.partners.get(\"33333333-4444-5555-6666-777777777777\");"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updatePartner",
+        "summary": "Update partner (root master only)",
+        "tags": [
+          "Partners"
+        ],
+        "description": "Rename a partner, edit contact / notes, or suspend / re-activate. Suspending a partner immediately blocks all of their keys at auth time.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "contactEmail": {
+                    "type": "string",
+                    "format": "email",
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "suspended"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "example": {
+                "status": "suspended"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "example": "33333333-4444-5555-6666-777777777777"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "suspended"
+                      ]
+                    },
+                    "contactEmail": {
+                      "type": "string",
+                      "format": "email",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "suspendedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "status",
+                    "contactEmail",
+                    "notes",
+                    "createdAt",
+                    "updatedAt",
+                    "suspendedAt"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "id": "33333333-4444-5555-6666-777777777777",
+                  "name": "OneTap.ai",
+                  "status": "suspended",
+                  "contactEmail": "ops@onetap.ai",
+                  "notes": null,
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "updatedAt": "2026-05-04T12:00:00.000Z",
+                  "suspendedAt": "2026-05-04T12:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or request shape error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is authenticated but not allowed to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Conflict — e.g. unique constraint violation, or Idempotency-Key reused with a different body."
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "An employee with that email or external_id already exists"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X PATCH 'https://api.ourteammanagement.com/v1/partners/33333333-4444-5555-6666-777777777777' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"status\":\"suspended\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.partners.update(\"33333333-4444-5555-6666-777777777777\", {\n  \"status\": \"suspended\"\n});"
+          }
+        ]
+      }
+    },
+    "/v1/partners/{id}/keys": {
+      "post": {
+        "operationId": "createPartnerKey",
+        "summary": "Mint a partner-scoped API key (root master only)",
+        "tags": [
+          "Partners"
+        ],
+        "description": "Generates a new partner-scoped API key. The plaintext value is returned once and never again — store it immediately. Used by the partner integrator to authenticate cross-tenant within their own orgs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              "example": {
+                "name": "prod-key-2026"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "example": "33333333-4444-5555-6666-777777777777"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "partnerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "prefix": {
+                      "type": "string",
+                      "description": "First 12 chars of the key, used for display + lookup."
+                    },
+                    "lastUsedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "revokedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "key": {
+                      "type": "string",
+                      "description": "Plaintext key, shown only once. Store securely (this won't be retrievable)."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "partnerId",
+                    "name",
+                    "prefix",
+                    "lastUsedAt",
+                    "createdAt",
+                    "revokedAt",
+                    "key"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "id": "44444444-5555-6666-7777-888888888888",
+                  "partnerId": "33333333-4444-5555-6666-777777777777",
+                  "name": "prod-key-2026",
+                  "prefix": "mh_live_abcd",
+                  "lastUsedAt": null,
+                  "createdAt": "2026-05-04T12:00:00.000Z",
+                  "revokedAt": null,
+                  "key": "mh_live_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or request shape error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is authenticated but not allowed to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/partners/33333333-4444-5555-6666-777777777777/keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"prod-key-2026\"}'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.partners.keys.create(\"33333333-4444-5555-6666-777777777777\", {\n  \"name\": \"prod-key-2026\"\n});"
+          }
+        ]
+      },
+      "get": {
+        "operationId": "listPartnerKeys",
+        "summary": "List partner keys (root master only)",
+        "tags": [
+          "Partners"
+        ],
+        "description": "Returns metadata for every partner-scoped key (active and revoked) issued to the given partner. Plaintext keys are never returned.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "example": "33333333-4444-5555-6666-777777777777"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "partnerId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "prefix": {
+                            "type": "string",
+                            "description": "First 12 chars of the key, used for display + lookup."
+                          },
+                          "lastUsedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "revokedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "partnerId",
+                          "name",
+                          "prefix",
+                          "lastUsedAt",
+                          "createdAt",
+                          "revokedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "44444444-5555-6666-7777-888888888888",
+                      "partnerId": "33333333-4444-5555-6666-777777777777",
+                      "name": "prod-key-2026",
+                      "prefix": "mh_live_abcd",
+                      "lastUsedAt": "2026-05-04T12:00:00.000Z",
+                      "createdAt": "2026-05-04T12:00:00.000Z",
+                      "revokedAt": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or request shape error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is authenticated but not allowed to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/partners/33333333-4444-5555-6666-777777777777/keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.partners.keys.list(\"33333333-4444-5555-6666-777777777777\");"
+          }
+        ]
+      }
+    },
+    "/v1/partners/{id}/keys/{keyId}": {
+      "delete": {
+        "operationId": "revokePartnerKey",
+        "summary": "Revoke a partner key (root master only)",
+        "tags": [
+          "Partners"
+        ],
+        "description": "Revokes a partner-scoped API key. Subsequent requests using the key fail with 401 within one transaction's worth of cache lag. The row is kept (with `revoked_at` set) for audit history.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "example": "33333333-4444-5555-6666-777777777777"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "keyId",
+            "required": true,
+            "example": "44444444-5555-6666-7777-888888888888"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "Required on all writes (POST/PATCH/DELETE). Replays return the cached response. Reusing a key with a different body returns 409."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-actor",
+            "required": false,
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
+          }
+        ],
+        "security": [
+          {
+            "masterApiKey": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted. No response body."
+          },
+          "400": {
+            "description": "Validation or request shape error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Validation or request shape error."
+                },
+                "example": {
+                  "error": {
+                    "code": "bad_request",
+                    "message": "managerId does not reference an employee in this tenant"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Missing or invalid API key."
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Missing or invalid API key"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is authenticated but not allowed to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Caller is authenticated but not allowed to perform this action."
+                },
+                "example": {
+                  "error": {
+                    "code": "forbidden",
+                    "message": "Caller is not allowed to perform this action"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Resource not found."
+                },
+                "example": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "Not found"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Rate limit exceeded. Retry after the seconds indicated by the `Retry-After` header."
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Rate limit exceeded. Retry after 6s.",
+                    "details": {
+                      "retryAfterSec": 6
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Machine-readable error code, e.g. `not_found`."
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Unexpected server error."
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "bash",
+            "label": "curl",
+            "source": "curl -X DELETE 'https://api.ourteammanagement.com/v1/partners/33333333-4444-5555-6666-777777777777/keys/44444444-5555-6666-7777-888888888888' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+          },
+          {
+            "lang": "javascript",
+            "label": "@myhr/sdk",
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.partners.keys.revoke(\"33333333-4444-5555-6666-777777777777\", \"44444444-5555-6666-7777-888888888888\");"
+          }
+        ]
+      }
+    },
     "/v1/members": {
       "get": {
         "operationId": "listMembers",
@@ -2284,7 +5014,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -2303,12 +5033,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -2665,7 +5398,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -2684,7 +5417,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -2701,6 +5434,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -3060,7 +5796,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -3079,12 +5815,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -3838,7 +6577,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -3857,7 +6596,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -3874,6 +6613,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -3905,6 +6647,7 @@
                       "type": "string",
                       "enum": [
                         "master",
+                        "partner",
                         "tenant"
                       ]
                     },
@@ -4183,7 +6926,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -4202,12 +6945,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -4244,6 +6990,7 @@
                             "type": "string",
                             "enum": [
                               "master",
+                              "partner",
                               "tenant"
                             ]
                           },
@@ -4585,7 +7332,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -4604,12 +7351,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -5089,7 +7839,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -5108,7 +7858,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -5125,6 +7875,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -5546,7 +8299,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -5565,12 +8318,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -6067,7 +8823,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -6086,7 +8842,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -6103,6 +8859,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -6563,7 +9322,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -6582,7 +9341,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -6599,6 +9358,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -6969,7 +9731,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -6988,12 +9750,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -7464,7 +10229,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -7483,7 +10248,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -7500,6 +10265,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -7862,7 +10630,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -7881,12 +10649,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -8230,7 +11001,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -8249,12 +11020,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -8663,7 +11437,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -8682,7 +11456,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -8699,6 +11473,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -9067,7 +11844,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -9086,7 +11863,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -9103,6 +11880,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -9406,7 +12186,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -9425,7 +12205,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -9442,6 +12222,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -9866,7 +12649,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -9885,12 +12668,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -10292,7 +13078,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -10311,12 +13097,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -10738,7 +13527,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -10757,7 +13546,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -10774,6 +13563,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -11283,7 +14075,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -11302,12 +14094,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -11704,7 +14499,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -11723,7 +14518,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -11740,6 +14535,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -12125,7 +14923,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -12144,12 +14942,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -12564,7 +15365,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -12583,7 +15384,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -12600,6 +15401,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -13061,7 +15865,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -13080,12 +15884,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -13490,7 +16297,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -13509,7 +16316,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -13526,6 +16333,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -13907,7 +16717,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -13926,12 +16736,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -14365,7 +17178,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -14384,7 +17197,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -14401,6 +17214,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -14780,7 +17596,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -14799,7 +17615,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -14816,6 +17632,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -15166,7 +17985,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -15185,12 +18004,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -15603,7 +18425,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -15622,7 +18444,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -15639,6 +18461,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -16028,7 +18853,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -16047,12 +18872,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -16488,7 +19316,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -16507,7 +19335,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -16524,6 +19352,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -16905,7 +19736,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -16924,12 +19755,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -17336,7 +20170,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -17355,7 +20189,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -17372,6 +20206,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -17706,7 +20543,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -17725,12 +20562,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -18075,7 +20915,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -18094,7 +20934,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           },
           {
             "schema": {
@@ -18111,6 +20951,9 @@
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -18414,7 +21257,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -18433,12 +21276,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -18742,7 +21588,7 @@
             "in": "header",
             "name": "x-tenant-id",
             "required": false,
-            "description": "Tenant org id — required for master callers, ignored for tenant-key + user callers."
+            "description": "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers."
           },
           {
             "schema": {
@@ -18761,12 +21607,15 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers."
           }
         ],
         "security": [
           {
             "masterApiKey": []
+          },
+          {
+            "partnerApiKey": []
           },
           {
             "tenantApiKey": []
@@ -19100,6 +21949,9 @@
             "masterApiKey": []
           },
           {
+            "partnerApiKey": []
+          },
+          {
             "tenantApiKey": []
           },
           {
@@ -19141,6 +21993,11 @@
                               "deleted"
                             ]
                           },
+                          "partnerId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time"
@@ -19155,6 +22012,7 @@
                           "name",
                           "region",
                           "status",
+                          "partnerId",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -19179,6 +22037,7 @@
                       "name": "Acme Inc",
                       "region": "eu",
                       "status": "active",
+                      "partnerId": null,
                       "createdAt": "2026-05-04T12:00:00.000Z",
                       "updatedAt": "2026-05-04T12:00:00.000Z"
                     }
@@ -19382,6 +22241,9 @@
       "masterApiKey": []
     },
     {
+      "partnerApiKey": []
+    },
+    {
       "tenantApiKey": []
     },
     {
@@ -19395,7 +22257,11 @@
     },
     {
       "name": "Orgs",
-      "description": "Tenant orgs. Master + end-user creation; master read."
+      "description": "Tenant orgs. Root master, partner, and end-user creation; root master + partner read (partners see only their own orgs)."
+    },
+    {
+      "name": "Partners",
+      "description": "External SaaS integrators. Each partner provisions HR orgs for their own customers and is RLS-isolated from every other partner. Operator-only management."
     },
     {
       "name": "Members",

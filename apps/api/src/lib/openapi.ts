@@ -45,7 +45,9 @@ const TenantHeader = z.object({
   "x-tenant-id": z
     .string()
     .uuid()
-    .describe("Tenant org id. Required on all tenant-scoped endpoints."),
+    .describe(
+      "Tenant org id. Required on all tenant-scoped endpoints when called by root master or partner callers.",
+    ),
 });
 
 const ActorHeader = z.object({
@@ -53,7 +55,7 @@ const ActorHeader = z.object({
     .string()
     .optional()
     .describe(
-      "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log.",
+      "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the integrator's product) for the audit log. Honored for root master and partner callers; ignored for tenant-key and user-session callers.",
     ),
 });
 
@@ -98,7 +100,9 @@ const OptionalTenantHeader = z.object({
     .string()
     .uuid()
     .optional()
-    .describe("Tenant org id — required for master callers, ignored for tenant-key + user callers."),
+    .describe(
+      "Tenant org id — required for root master and partner callers, ignored for tenant-key + user callers.",
+    ),
 });
 
 export const orgReadHeaders = OptionalTenantHeader.merge(OrgIdHeader).merge(ActorHeader);

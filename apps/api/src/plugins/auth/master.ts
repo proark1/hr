@@ -6,12 +6,14 @@ import { Errors } from "../../errors.js";
 const masterKeyHash = sha256(env.MASTER_API_KEY);
 
 /**
- * Try the master strategy.
+ * Try the root master strategy.
  *
- * Returns a master Caller when the token matches MASTER_API_KEY, or null to
- * indicate "this isn't a master token, try the next strategy". Throws on
- * malformed-but-master-shaped (e.g. wrong length) — caller decides how to
- * handle: today we just return null and let the next strategy try.
+ * Returns a master Caller when the token matches MASTER_API_KEY (the
+ * operator's env-var bootstrap credential), or null to indicate "this
+ * isn't the root master token, try the next strategy".
+ *
+ * Note: only ROOT master matches here. Partner keys (also `mh_`-prefixed,
+ * also DB-backed) are handled by tryPartnerKey in partner.ts.
  */
 export function tryMaster(token: string): Caller | null {
   if (!timingSafeEqual(sha256(token), masterKeyHash)) return null;
@@ -19,10 +21,11 @@ export function tryMaster(token: string): Caller | null {
 }
 
 /**
- * Parse the optional X-Actor JSON header for audit attribution. Only the
- * master strategy honors it — the master integrator is the only caller we
- * trust to assert an actor identity without our own auth. Tenant-key and
- * user strategies synthesize actor from their own credentials.
+ * Parse the optional X-Actor JSON header for audit attribution. Honored by
+ * machine callers we trust to assert an actor identity without our own
+ * auth: root master (the operator) and partner keys (vetted external
+ * integrators). Tenant-key and user strategies synthesize actor from
+ * their own credentials and ignore X-Actor.
  */
 export function parseMasterActor(header: string | string[] | undefined): Actor {
   if (typeof header !== "string" || header.length === 0) return {};

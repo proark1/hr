@@ -53,13 +53,28 @@ const employee = {
   updatedAt: NOW,
 };
 
+const SAMPLE_PARTNER_ID = "33333333-4444-5555-6666-777777777777";
+const SAMPLE_PARTNER_KEY_ID = "44444444-5555-6666-7777-888888888888";
+
 const org = {
   id: SAMPLE_ORG_ID,
   name: "Acme Inc",
   region: "eu",
   status: "active",
+  partnerId: null,
   createdAt: NOW,
   updatedAt: NOW,
+};
+
+const partner = {
+  id: SAMPLE_PARTNER_ID,
+  name: "OneTap.ai",
+  status: "active",
+  contactEmail: "ops@onetap.ai",
+  notes: null,
+  createdAt: NOW,
+  updatedAt: NOW,
+  suspendedAt: null,
 };
 
 const member = {
@@ -115,6 +130,58 @@ export const FIXTURES: Record<string, OperationFixture> = {
     pathParams: { id: SAMPLE_ORG_ID },
     body: { name: "Acme Holdings GmbH" },
     response: { ...org, name: "Acme Holdings GmbH" },
+  },
+
+  // Partners
+  createPartner: {
+    body: { name: "OneTap.ai", contactEmail: "ops@onetap.ai" },
+    response: partner,
+  },
+  listPartners: {
+    query: { limit: 50 },
+    response: { items: [partner], nextCursor: null },
+  },
+  getPartner: {
+    pathParams: { id: SAMPLE_PARTNER_ID },
+    response: partner,
+  },
+  updatePartner: {
+    pathParams: { id: SAMPLE_PARTNER_ID },
+    body: { status: "suspended" },
+    response: { ...partner, status: "suspended", suspendedAt: NOW },
+  },
+  createPartnerKey: {
+    pathParams: { id: SAMPLE_PARTNER_ID },
+    body: { name: "prod-key-2026" },
+    response: {
+      id: SAMPLE_PARTNER_KEY_ID,
+      partnerId: SAMPLE_PARTNER_ID,
+      name: "prod-key-2026",
+      prefix: "mh_live_abcd",
+      lastUsedAt: null,
+      createdAt: NOW,
+      revokedAt: null,
+      key: "mh_live_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d",
+    },
+  },
+  listPartnerKeys: {
+    pathParams: { id: SAMPLE_PARTNER_ID },
+    response: {
+      items: [
+        {
+          id: SAMPLE_PARTNER_KEY_ID,
+          partnerId: SAMPLE_PARTNER_ID,
+          name: "prod-key-2026",
+          prefix: "mh_live_abcd",
+          lastUsedAt: NOW,
+          createdAt: NOW,
+          revokedAt: null,
+        },
+      ],
+    },
+  },
+  revokePartnerKey: {
+    pathParams: { id: SAMPLE_PARTNER_ID, keyId: SAMPLE_PARTNER_KEY_ID },
   },
 
   // Members
@@ -389,4 +456,6 @@ export const SAMPLES = {
   apiKeyId: SAMPLE_API_KEY_ID,
   webhookEndpointId: SAMPLE_WEBHOOK_ENDPOINT_ID,
   webhookDeliveryId: SAMPLE_WEBHOOK_DELIVERY_ID,
+  partnerId: SAMPLE_PARTNER_ID,
+  partnerKeyId: SAMPLE_PARTNER_KEY_ID,
 };
