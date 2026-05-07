@@ -205,6 +205,12 @@ open apps/api/dist-docs/index.html
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the full env-var matrix, custom-domain
 setup, and verification steps.
 
+Already integrated against an older version? See [UPGRADING.md](UPGRADING.md)
+for the partner-keys migration guide (PR #35) — covers tenants who minted
+API keys before the prefix-length bump, external integrators moving off
+the shared root master onto their own partner keys, and SDK / OpenAPI
+consumers picking up the new fields.
+
 ## GDPR
 
 - Soft-delete + redaction on `DELETE /v1/employees/{id}` (Art. 17).
