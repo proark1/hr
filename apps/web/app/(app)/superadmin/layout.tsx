@@ -23,18 +23,20 @@ export default async function SuperAdminLayout({
   const api = await getApiClient();
   if (!api) redirect("/login");
 
-  let isSuperAdmin = false;
+  let me;
   try {
-    const me = await api.me.get();
-    isSuperAdmin = me.isSuperAdmin === true;
+    me = await api.me.get();
   } catch (err) {
-    // If /v1/me itself fails, send back to login — the session is
-    // probably expired. Anything else falls through and the user is
-    // treated as non-admin.
+    // 401 = stale session; bounce to login.
     if (err instanceof MyHRError && err.status === 401) redirect("/login");
+    // Anything else (5xx, network, the API service is down) is NOT a
+    // permissions issue — re-throw so error.tsx can render its
+    // "Something went wrong" card. Swallowing here would falsely tell
+    // the user they lack access when the real problem is an outage.
+    throw err;
   }
 
-  if (!isSuperAdmin) {
+  if (me.isSuperAdmin !== true) {
     // Non-admins land here either by typing the URL or following a stale
     // bookmark from a previously-elevated session. Bounce them home;
     // there's no useful page in this tree for them.
