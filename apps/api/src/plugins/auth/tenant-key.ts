@@ -1,8 +1,6 @@
 import { withTenant, type PrismaClient } from "@myhr/db";
 import type { Caller } from "./types.js";
-import { sha256, timingSafeEqual } from "./shared.js";
-
-const PREFIX_LEN = 12;
+import { sha256, timingSafeEqual, PREFIX_LEN } from "./shared.js";
 
 /** Don't write `last_used_at` more often than this per key. Under load every
  *  request would otherwise row-lock the same api_keys row and fan out WAL.

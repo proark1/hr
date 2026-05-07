@@ -4028,7 +4028,7 @@
                   "id": "44444444-5555-6666-7777-888888888888",
                   "partnerId": "33333333-4444-5555-6666-777777777777",
                   "name": "prod-key-2026",
-                  "prefix": "mh_live_abcd",
+                  "prefix": "mh_live_abcd1234efgh5678",
                   "lastUsedAt": null,
                   "createdAt": "2026-05-04T12:00:00.000Z",
                   "revokedAt": null,
@@ -4400,7 +4400,7 @@
                       "id": "44444444-5555-6666-7777-888888888888",
                       "partnerId": "33333333-4444-5555-6666-777777777777",
                       "name": "prod-key-2026",
-                      "prefix": "mh_live_abcd",
+                      "prefix": "mh_live_abcd1234efgh5678",
                       "lastUsedAt": "2026-05-04T12:00:00.000Z",
                       "createdAt": "2026-05-04T12:00:00.000Z",
                       "revokedAt": null
@@ -6679,7 +6679,7 @@
                 "example": {
                   "id": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
                   "name": "Production server (read+write)",
-                  "prefix": "mh_live_4f3c",
+                  "prefix": "mh_live_4f3c1aa9e2b1",
                   "scope": "tenant",
                   "lastUsedAt": null,
                   "createdAt": "2026-05-04T12:00:00.000Z",
@@ -7026,7 +7026,7 @@
                     {
                       "id": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
                       "name": "Production server (read+write)",
-                      "prefix": "mh_live_4f3c",
+                      "prefix": "mh_live_4f3c1aa9e2b1",
                       "scope": "tenant",
                       "lastUsedAt": "2026-05-04T12:00:00.000Z",
                       "createdAt": "2026-05-04T12:00:00.000Z"

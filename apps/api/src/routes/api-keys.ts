@@ -4,15 +4,14 @@ import { z } from "zod";
 import { ApiKey, ApiKeyCreate, ApiKeyCreated } from "@myhr/types";
 import { withTenant } from "@myhr/db";
 import { errorResponses, orgReadHeaders, orgWriteHeaders } from "../lib/openapi.js";
+import { PREFIX_LEN } from "../plugins/auth/shared.js";
 
 const ListResponse = z.object({ items: z.array(ApiKey) });
 
-const PREFIX_LEN = 12;
-
 function generateKey(): { plaintext: string; prefix: string; hash: string } {
   // 32 bytes → 64 hex chars; with the "mh_live_" tag the full token is 72.
-  // The first 12 chars are "mh_live_xxxx" (4 random nibbles), used as the
-  // lookup prefix in api_keys.
+  // PREFIX_LEN of 24 means the lookup prefix has 16 random hex chars (64
+  // bits of entropy), keeping collisions astronomically unlikely.
   const random = crypto.randomBytes(32).toString("hex");
   const plaintext = `mh_live_${random}`;
   const prefix = plaintext.slice(0, PREFIX_LEN);

@@ -1,8 +1,6 @@
 import { withTenant, type PrismaClient } from "@myhr/db";
 import type { Caller } from "./types.js";
-import { sha256, timingSafeEqual } from "./shared.js";
-
-const PREFIX_LEN = 12;
+import { sha256, timingSafeEqual, PREFIX_LEN } from "./shared.js";
 
 /** Throttle last_used_at writes per key to avoid hot-row contention.
  *  Mirrors the tenant-key strategy. 60s is a useful "is this key alive"

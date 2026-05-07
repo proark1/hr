@@ -12,6 +12,7 @@ import {
 import { withTenant } from "@myhr/db";
 import { Errors } from "../errors.js";
 import { errorResponses, masterReadHeaders, masterWriteHeaders } from "../lib/openapi.js";
+import { PREFIX_LEN } from "../plugins/auth/shared.js";
 
 const PageQuery = z.object({
   cursor: z.string().optional(),
@@ -24,10 +25,7 @@ const PartnerListResponse = z.object({
 });
 const PartnerKeyListResponse = z.object({ items: z.array(PartnerKey) });
 
-const PREFIX_LEN = 12;
-
 function generateKey(): { plaintext: string; prefix: string; hash: string } {
-  // 32 bytes → 64 hex chars; with the "mh_live_" tag the full token is 72.
   // Same shape as tenant keys — the auth orchestrator disambiguates by
   // looking up the prefix in api_keys with scope filter.
   const random = crypto.randomBytes(32).toString("hex");
@@ -188,18 +186,43 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       config: { masterOnly: true },
     },
     async (req) => {
-      const data: Record<string, unknown> = {};
-      if (req.body.name !== undefined) data.name = req.body.name;
-      if (req.body.contactEmail !== undefined) data.contactEmail = req.body.contactEmail;
-      if (req.body.notes !== undefined) data.notes = req.body.notes;
-      if (req.body.status !== undefined) {
-        data.status = req.body.status;
-        // Track when suspension first occurred (clear on reactivation) so
-        // operators can see how long a partner has been suspended.
-        data.suspendedAt = req.body.status === "suspended" ? new Date() : null;
-      }
-      const updated = await withTenant(app.prisma, { orgId: null, isMaster: true }, (tx) =>
-        tx.partner.update({ where: { id: req.params.id }, data }),
+      const updated = await withTenant(
+        app.prisma,
+        { orgId: null, isMaster: true },
+        async (tx) => {
+          // Read-then-update so we can compute suspendedAt as a transition
+          // (only stamp it the first time status flips active→suspended;
+          // clear it on reactivation). Update-then-look would clobber the
+          // original suspension timestamp on every PATCH that re-asserts
+          // the same status.
+          const existing = await tx.partner.findUnique({
+            where: { id: req.params.id },
+            select: { status: true },
+          });
+          if (!existing) throw Errors.notFound();
+
+          const data: Record<string, unknown> = {};
+          if (req.body.name !== undefined) data.name = req.body.name;
+          if (req.body.contactEmail !== undefined) data.contactEmail = req.body.contactEmail;
+          if (req.body.notes !== undefined) data.notes = req.body.notes;
+          if (req.body.status !== undefined && req.body.status !== existing.status) {
+            data.status = req.body.status;
+            data.suspendedAt = req.body.status === "suspended" ? new Date() : null;
+          }
+
+          try {
+            return await tx.partner.update({ where: { id: req.params.id }, data });
+          } catch (err) {
+            // Defense in depth: even though we just read the row, a
+            // concurrent delete could leave us racing with P2025.
+            const code =
+              err && typeof err === "object" && "code" in err
+                ? (err as { code: string }).code
+                : "";
+            if (code === "P2025") throw Errors.notFound();
+            throw err;
+          }
+        },
       );
       req.auditAction = "partner.updated";
       req.auditResource = `partner:${updated.id}`;

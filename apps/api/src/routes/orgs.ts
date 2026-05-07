@@ -21,9 +21,10 @@ const ListResponse = z.object({
 });
 
 /** Build the right session context for a request that needs to act on the
- *  orgs table. Root master gets is_master mode (cross-everything); partner
- *  gets partner mode (RLS scopes to orgs.partner_id = current_partner_id);
- *  user callers run with their userId set so memberships RLS can match. */
+ *  orgs table. Fail-closed: only root master gets is_master=true. Partners
+ *  run in partner mode (RLS scopes to orgs.partner_id); users + the
+ *  fallback run with is_master=false so RLS can't be bypassed even if a
+ *  future config change admits them to a route using this helper. */
 function callerOrgsCtx(caller: import("../plugins/auth/types.js").Caller): {
   orgId: string | null;
   isMaster: boolean;
@@ -35,11 +36,11 @@ function callerOrgsCtx(caller: import("../plugins/auth/types.js").Caller): {
     return { orgId: null, isMaster: false, partnerId: caller.partnerId };
   }
   if (caller.type === "user") {
-    return { orgId: null, isMaster: true, userId: caller.userId };
+    return { orgId: null, isMaster: false, userId: caller.userId };
   }
-  // tenant_key callers don't get to operate on the orgs table beyond their
-  // own row (the routes that admit them don't reach this helper).
-  return { orgId: null, isMaster: true };
+  // tenant_key callers don't reach this helper today; if they ever do,
+  // fail closed under RLS instead of silently elevating to master.
+  return { orgId: null, isMaster: false };
 }
 
 const orgRoutes: FastifyPluginAsyncZod = async (app) => {
