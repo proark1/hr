@@ -25,7 +25,7 @@ const superAdminRoutes: FastifyPluginAsyncZod = async (app) => {
         operationId: "superadminListOrgs",
         summary: "List all orgs (super admin)",
         description:
-          "Cross-tenant org list for MyHR ops humans (`is_super_admin = true`). Master + tenant-key callers are rejected — they have their own paths.",
+          "Cross-tenant org list for OurTeamManagement ops humans (`is_super_admin = true`). Master + tenant-key callers are rejected — they have their own paths.",
         headers: userReadHeaders,
         querystring: PageQuery,
         response: { 200: ListResponse, ...errorResponses(401, 403, 429, 500) },

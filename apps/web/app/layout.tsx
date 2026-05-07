@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MyHR — HR for startups",
+  title: "OurTeamManagement — HR for startups",
   description: "API-first HR for startups. Hire, onboard, manage time off, and stay GDPR-compliant.",
 };
 

@@ -63,7 +63,7 @@ function webhook(args: {
       tags: ["Webhooks"],
       summary: args.summary,
       description: args.description,
-      // Webhook handlers don't authenticate against MyHR — they validate
+      // Webhook handlers don't authenticate against OurTeamManagement — they validate
       // the inbound HMAC signature. Mark public so Redoc renders cleanly.
       security: [],
       requestBody: {
@@ -117,7 +117,7 @@ export const WEBHOOKS: Record<string, Json> = {
   "document.expiring": webhook({
     summary: "Fired ahead of a document's expiry",
     description:
-      "Emitted at 30 / 14 / 7 / 1 days before `document.expiresAt` so 1tap can notify the employee or HR. Each window fires exactly once per document.",
+      "Emitted at 30 / 14 / 7 / 1 days before `document.expiresAt` so the integrator can notify the employee or HR. Each window fires exactly once per document.",
     eventType: "document.expiring",
     dataExample: {
       documentId: "dddddddd-eeee-ffff-aaaa-bbbbbbbbbbbb",

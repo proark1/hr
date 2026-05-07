@@ -20,9 +20,9 @@ export function tryMaster(token: string): Caller | null {
 
 /**
  * Parse the optional X-Actor JSON header for audit attribution. Only the
- * master strategy honors it — 1tap is the only caller we trust to assert
- * an actor identity without our own auth. Tenant-key and user strategies
- * synthesize actor from their own credentials.
+ * master strategy honors it — the master integrator is the only caller we
+ * trust to assert an actor identity without our own auth. Tenant-key and
+ * user strategies synthesize actor from their own credentials.
  */
 export function parseMasterActor(header: string | string[] | undefined): Actor {
   if (typeof header !== "string" || header.length === 0) return {};

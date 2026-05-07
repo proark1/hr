@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Event types MyHR will fire. Add new event types here when new emit
+/** Event types OurTeamManagement will fire. Add new event types here when new emit
  *  call-sites land — the publisher rejects unknown types so consumers
  *  can rely on the enum being authoritative. */
 export const WebhookEventType = z.enum([

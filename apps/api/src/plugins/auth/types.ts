@@ -2,7 +2,8 @@
  * Caller + Actor types for the API auth layer.
  *
  * Three caller types:
- *   - master:     1tap.ai's bootstrap API key (env MASTER_API_KEY).
+ *   - master:     The operator's bootstrap API key (env MASTER_API_KEY).
+ *                 One per deployment; cross-tenant.
  *   - tenant_key: org-scoped API key minted from the dashboard. Caller's
  *                 orgId is fixed by the key.
  *   - user:       Access token (JWT) issued by the external auth service

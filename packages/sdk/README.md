@@ -1,6 +1,6 @@
 # @myhr/sdk
 
-Hand-written, fully-typed REST client for the [MyHR API](https://github.com/proark1/hr).
+Hand-written, fully-typed REST client for the [OurTeamManagement API](https://github.com/proark1/hr).
 One method per `operationId` in [`apps/api/openapi.json`](../../apps/api/openapi.json).
 CI fails the build if the spec and the SDK drift apart
 (`pnpm --filter @myhr/api openapi:sdk-coverage`).
@@ -29,7 +29,7 @@ published to npm. To depend on it from another workspace package:
 import { createClient } from "@myhr/sdk";
 
 const myhr = createClient({
-  baseUrl: "https://api.myhr.example",
+  baseUrl: "https://api.ourteammanagement.com",
   getToken: () => process.env.MYHR_API_KEY!,
   defaultTenantId: "11111111-2222-3333-4444-555555555555",
 });
@@ -43,7 +43,7 @@ const employees = await myhr.employees.list({ status: "active", limit: 50 });
 
 | Field             | Type                              | Required | Notes                                                                 |
 | ----------------- | --------------------------------- | -------- | --------------------------------------------------------------------- |
-| `baseUrl`         | `string`                          | yes      | e.g. `https://api.myhr.example`                                       |
+| `baseUrl`         | `string`                          | yes      | e.g. `https://api.ourteammanagement.com`                                       |
 | `getToken`        | `() => string \| Promise<string>` | yes      | Bearer token. Master/tenant key (`mh_live_…`) or Better Auth session. |
 | `defaultOrgId`    | `string`                          | no       | Sets `X-Org-Id` on every call (end-user callers).                     |
 | `defaultTenantId` | `string`                          | no       | Sets `X-Tenant-Id` on every call (master callers).                    |
@@ -66,9 +66,9 @@ Three credential types are supported. All travel as
 
 | Token format              | Used by                              | Org context                  |
 | ------------------------- | ------------------------------------ | ---------------------------- |
-| `mh_live_…` (master)      | 1tap's backend, cross-tenant         | `X-Tenant-Id` (per-call)     |
-| `mh_live_…` (tenant)      | A startup's own integrations         | derived from key (ignored)   |
-| Better Auth session token | The MyHR web app on behalf of a user | `X-Org-Id` (per-call)        |
+| `mh_live_…` (master)      | The operator's backend, cross-tenant | `X-Tenant-Id` (per-call)     |
+| `mh_live_…` (tenant)      | A tenant's own integrations          | derived from key (ignored)   |
+| Better Auth session token | The OurTeamManagement web app on behalf of a user | `X-Org-Id` (per-call)        |
 
 ## Idempotency
 
@@ -130,6 +130,13 @@ The client groups methods by resource. Each method maps 1:1 to an
 - `invitations` — `create`, `list`, `accept`
 - `apiKeys` — `create`, `list`
 - `employees` — `list`, `create`, `get`, `update`, `delete`, `exportData`
+- `timeOff` — `list`, `create`, `get`, `decide`
+- `documents` — `list`, `create`, `get`, `update`, `delete`
+- `reviews` — `list`, `create`, `get`, `update`
+- `orgChart` — `get`
+- `company` — `get`, `update`
+- `settings` — `get`, `update`
+- `billing` — `get`
 - `superadmin` — `listOrgs`
 - `webhookEndpoints` — `create`, `list`, `get`, `update`, `rotateSecret`, `delete`
 - `webhookDeliveries` — `list`, `get`, `redeliver`

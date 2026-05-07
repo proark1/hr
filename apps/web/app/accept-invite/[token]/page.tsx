@@ -14,7 +14,7 @@ export default async function AcceptInvitePage({ params }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      <Link href="/" className="text-lg font-semibold tracking-tight mb-6">MyHR</Link>
+      <Link href="/" className="text-lg font-semibold tracking-tight mb-6">OurTeamManagement</Link>
       <div className="w-full max-w-sm">
         {session ? (
           <AcceptInviteForm token={token} email={session.user.email} />
@@ -25,7 +25,7 @@ export default async function AcceptInvitePage({ params }: Props) {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                You need a MyHR account to accept this invitation. Sign in or
+                You need a OurTeamManagement account to accept this invitation. Sign in or
                 create one — make sure to use the email address the invite was
                 sent to.
               </p>

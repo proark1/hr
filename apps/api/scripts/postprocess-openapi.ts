@@ -180,7 +180,7 @@ function buildSdkSnippet(operationId: string, fixture: OperationFixture): string
     `import { createClient } from "@myhr/sdk";`,
     ``,
     `const myhr = createClient({`,
-    `  baseUrl: "https://api.myhr.example",`,
+    `  baseUrl: "https://api.ourteammanagement.com",`,
     `  getToken: () => process.env.MYHR_API_KEY!,`,
     `  defaultTenantId: "${SAMPLES.orgId}",`,
     `});`,
@@ -281,7 +281,7 @@ function applyCodeSamples(args: {
 export function postprocess(spec: Json): Json {
   const baseUrl =
     (spec.servers as Array<{ url: string }> | undefined)?.[0]?.url ??
-    "https://api.myhr.example";
+    "https://api.ourteammanagement.com";
 
   const paths = (spec.paths as Record<string, PathItem>) ?? {};
   for (const [path, item] of Object.entries(paths)) {
@@ -321,7 +321,7 @@ export function postprocess(spec: Json): Json {
       tags.push({
         name: "Webhooks",
         description:
-          "Webhook endpoint management + delivery audit. Manage where MyHR delivers events with `/v1/webhook-endpoints/*`; inspect or replay attempts with `/v1/webhook-deliveries/*`. The event payloads MyHR actually POSTs are documented under the **Webhooks** section.",
+          "Webhook endpoint management + delivery audit. Manage where OurTeamManagement delivers events with `/v1/webhook-endpoints/*`; inspect or replay attempts with `/v1/webhook-deliveries/*`. The event payloads OurTeamManagement actually POSTs are documented under the **Webhooks** section.",
       });
       spec.tags = tags;
     }

@@ -17,7 +17,7 @@ export type SessionUser = {
 
 export type Session = {
   user: SessionUser;
-  /** Bearer token to forward to the MyHR API. */
+  /** Bearer token to forward to the OurTeamManagement API. */
   accessToken: string;
 };
 

@@ -6,7 +6,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border">
         <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-lg font-semibold tracking-tight">MyHR</Link>
+          <Link href="/" className="text-lg font-semibold tracking-tight">OurTeamManagement</Link>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">Log in</Link>
@@ -20,7 +20,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <main className="flex-1">{children}</main>
       <footer className="border-t border-border py-6 text-sm text-muted-foreground">
         <div className="mx-auto max-w-6xl px-6 flex items-center justify-between">
-          <span>&copy; {new Date().getFullYear()} MyHR</span>
+          <span>&copy; {new Date().getFullYear()} OurTeamManagement</span>
           <span>EU-hosted &middot; GDPR-compliant</span>
         </div>
       </footer>

@@ -2,7 +2,7 @@
   "name": "myhr",
   "private": true,
   "version": "0.0.1",
-  "description": "MyHR — API-first HR service for 1tap.ai",
+  "description": "OurTeamManagement — API-first multi-tenant HR service",
   "packageManager": "pnpm@10.33.2",
   "engines": {
     "node": ">=22"

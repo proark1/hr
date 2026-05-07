@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "MyHR API",
-    "description": "API-first HR service for [1tap.ai](https://1tap.ai). One master integrator (1tap) provisions and operates many startup tenants. End users never log in to MyHR — 1tap brings their own UI and OAuth and calls this API on their behalf.\n\n## Authentication\n\nAll authenticated requests send a bearer token:\n\n```\nAuthorization: Bearer <token>\n```\n\nThree credential types are accepted (each operation lists which subset it allows):\n\n| Scheme | Token format | Used by |\n| --- | --- | --- |\n| `masterApiKey` | `mh_live_…` (env `MASTER_API_KEY`) | 1tap's backend, cross-tenant |\n| `tenantApiKey` | `mh_live_…` (minted from dashboard) | A startup's own integrations |\n| `userSession` | Auth-service access token (JWT) | The MyHR web app, on behalf of a user |\n\n## Tenant scoping\n\nTenant-scoped endpoints resolve the tenant org per caller type:\n\n- `masterApiKey` → `X-Tenant-Id` header (UUID).\n- `tenantApiKey` → derived from the key; the header is ignored.\n- `userSession` → `X-Org-Id` header, validated against the user's memberships.\n\nAll data access is enforced by Postgres Row-Level Security — a missing or wrong tenant id never returns another tenant's data.\n\n## Audit attribution\n\nMaster callers can pass `X-Actor: {\"id\":\"u_123\",\"email\":\"a@b\",\"name\":\"Ada\"}` (JSON) to attribute the request to a specific 1tap user in the audit log. User-session callers cannot set `X-Actor` (the actor is taken from the session to prevent spoofing).\n\n## Idempotency\n\nWrites (`POST` / `PATCH` / `DELETE`) require an `Idempotency-Key` header (any unique string per logical operation, typically a UUID). Replays within 24h return the cached response. Reusing a key with a different request body returns `409 conflict`.\n\n## Errors\n\nEvery error response uses a single envelope:\n\n```json\n{ \"error\": { \"code\": \"not_found\", \"message\": \"...\", \"details\": {} } }\n```\n\nStable codes: `bad_request`, `tenant_required`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `internal_error`. New codes are additive — clients should switch on `code` and treat unknown codes as a generic failure.\n\n## Pagination\n\nList endpoints use opaque cursors. Pass `?limit=` (1–200, default 50) and `?cursor=<value>` to page forward. The response is `{ items: [...], nextCursor: string | null }` — `nextCursor: null` means you're at the end. Cursors are stable across writes (deletions skip rather than fail).\n\n## Rate limits\n\nEach `masterApiKey` and `tenantApiKey` is limited to **600 requests / minute**, burst 60/sec. Limits are returned on every response:\n\n- `RateLimit-Limit` — total per window\n- `RateLimit-Remaining` — left in window\n- `RateLimit-Reset` — seconds until reset\n\nExceeding the limit returns `429 too_many_requests`. Retry with exponential backoff using the `Retry-After` header.\n\n## Versioning\n\nThe major version is in the URL (`/v1`). Within a major version we only make additive changes (new fields, new operations, new error codes). Deprecations are announced at least 90 days in advance via the `Deprecation` and `Sunset` response headers ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)) and called out in [`apps/api/CHANGELOG.md`](https://github.com/proark1/hr/blob/main/apps/api/CHANGELOG.md).\n\nBreaking changes only ever ship under a new major (`/v2`), and `/v1` will run alongside it for at least 12 months.\n\n## Webhooks\n\nRegister a delivery URL via `POST /v1/webhook-endpoints` with the events you want — currently `employee.created`, `employee.updated`, `employee.deleted`, and (forthcoming) `document.expiring`. The signing secret is returned once at creation; use it to verify the `Webhook-Signature` header on every inbound delivery. The header value is `t=<unix-seconds>,v1=<hex-hmac-sha256>` of `<t>.<raw-body>`, the same format Stripe uses; the SDK exposes `verifyWebhookSignature()` for convenience.\n\nDelivery semantics: each event is enqueued per subscribed endpoint with up to 8 attempts and exponential backoff (~1s → ~17h). The delivery audit log is queryable at `/v1/webhook-deliveries`, and any non-`delivered` row can be re-enqueued via `/v1/webhook-deliveries/{id}/redeliver`. Receivers must respond with any 2xx within 10s; non-2xx triggers a retry.\n\n## Quickstart\n\n```bash\ncurl https://api.myhr.example/v1/employees \\\n  -H 'Authorization: Bearer $MASTER_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\"}'\n```",
+    "title": "OurTeamManagement API",
+    "description": "API-first multi-tenant HR service. The same API is used by the bundled dashboard, by master integrators that provision and operate many tenants, and by tenant-side machine integrations.\n\n## Authentication\n\nAll authenticated requests send a bearer token:\n\n```\nAuthorization: Bearer <token>\n```\n\nThree credential types are accepted (each operation lists which subset it allows):\n\n| Scheme | Token format | Used by |\n| --- | --- | --- |\n| `masterApiKey` | `mh_live_…` (env `MASTER_API_KEY`) | The operator's backend, cross-tenant |\n| `tenantApiKey` | `mh_live_…` (minted from dashboard) | A tenant's own integrations |\n| `userSession` | Auth-service access token (JWT) | The OurTeamManagement web app, on behalf of a user |\n\n## Tenant scoping\n\nTenant-scoped endpoints resolve the tenant org per caller type:\n\n- `masterApiKey` → `X-Tenant-Id` header (UUID).\n- `tenantApiKey` → derived from the key; the header is ignored.\n- `userSession` → `X-Org-Id` header, validated against the user's memberships.\n\nAll data access is enforced by Postgres Row-Level Security — a missing or wrong tenant id never returns another tenant's data.\n\n## Audit attribution\n\nMaster callers can pass `X-Actor: {\"id\":\"u_123\",\"email\":\"a@b\",\"name\":\"Ada\"}` (JSON) to attribute the request to a specific user in the audit log (e.g. the human in the operator's product who triggered the call). User-session callers cannot set `X-Actor` (the actor is taken from the session to prevent spoofing).\n\n## Idempotency\n\nWrites (`POST` / `PATCH` / `DELETE`) require an `Idempotency-Key` header (any unique string per logical operation, typically a UUID). Replays within 24h return the cached response. Reusing a key with a different request body returns `409 conflict`.\n\n## Errors\n\nEvery error response uses a single envelope:\n\n```json\n{ \"error\": { \"code\": \"not_found\", \"message\": \"...\", \"details\": {} } }\n```\n\nStable codes: `bad_request`, `tenant_required`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `internal_error`. New codes are additive — clients should switch on `code` and treat unknown codes as a generic failure.\n\n## Pagination\n\nList endpoints use opaque cursors. Pass `?limit=` (1–200, default 50) and `?cursor=<value>` to page forward. The response is `{ items: [...], nextCursor: string | null }` — `nextCursor: null` means you're at the end. Cursors are stable across writes (deletions skip rather than fail).\n\n## Rate limits\n\nEach `masterApiKey` and `tenantApiKey` is limited to **600 requests / minute**, burst 60/sec. Limits are returned on every response:\n\n- `RateLimit-Limit` — total per window\n- `RateLimit-Remaining` — left in window\n- `RateLimit-Reset` — seconds until reset\n\nExceeding the limit returns `429 too_many_requests`. Retry with exponential backoff using the `Retry-After` header.\n\n## Versioning\n\nThe major version is in the URL (`/v1`). Within a major version we only make additive changes (new fields, new operations, new error codes). Deprecations are announced at least 90 days in advance via the `Deprecation` and `Sunset` response headers ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)) and called out in [`apps/api/CHANGELOG.md`](https://github.com/proark1/hr/blob/main/apps/api/CHANGELOG.md).\n\nBreaking changes only ever ship under a new major (`/v2`), and `/v1` will run alongside it for at least 12 months.\n\n## Webhooks\n\nRegister a delivery URL via `POST /v1/webhook-endpoints` with the events you want — currently `employee.created`, `employee.updated`, `employee.deleted`, and (forthcoming) `document.expiring`. The signing secret is returned once at creation; use it to verify the `Webhook-Signature` header on every inbound delivery. The header value is `t=<unix-seconds>,v1=<hex-hmac-sha256>` of `<t>.<raw-body>`, the same format Stripe uses; the SDK exposes `verifyWebhookSignature()` for convenience.\n\nDelivery semantics: each event is enqueued per subscribed endpoint with up to 8 attempts and exponential backoff (~1s → ~17h). The delivery audit log is queryable at `/v1/webhook-deliveries`, and any non-`delivered` row can be re-enqueued via `/v1/webhook-deliveries/{id}/redeliver`. Receivers must respond with any 2xx within 10s; non-2xx triggers a retry.\n\n## Quickstart\n\n```bash\ncurl https://api.ourteammanagement.com/v1/employees \\\n  -H 'Authorization: Bearer $MASTER_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\"}'\n```",
     "version": "0.0.1"
   },
   "components": {
@@ -10,7 +10,7 @@
       "masterApiKey": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Master API key issued to 1tap (env `MASTER_API_KEY`). Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls."
+        "description": "Master API key (env `MASTER_API_KEY`) — the operator's bootstrap credential. Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls."
       },
       "tenantApiKey": {
         "type": "http",
@@ -104,7 +104,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/healthz' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/healthz' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
           }
         ]
       }
@@ -144,9 +144,9 @@
                   "additionalProperties": false
                 },
                 "example": {
-                  "name": "MyHR API",
+                  "name": "OurTeamManagement API",
                   "version": "0.0.1",
-                  "docs": "https://api.myhr.example/openapi"
+                  "docs": "https://api.ourteammanagement.com/openapi"
                 }
               }
             }
@@ -156,7 +156,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
           }
         ]
       }
@@ -393,12 +393,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/me' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/me' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.me.get();"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.me.get();"
           }
         ]
       }
@@ -692,12 +692,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/me/orgs' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/me/orgs' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.me.listMyOrgs();"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.me.listMyOrgs();"
           }
         ]
       }
@@ -709,7 +709,7 @@
         "tags": [
           "Orgs"
         ],
-        "description": "Lists all tenant orgs. Restricted to the master integrator (1tap).",
+        "description": "Lists all tenant orgs. Restricted to the master integrator.",
         "parameters": [
           {
             "schema": {
@@ -738,7 +738,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -1041,12 +1041,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/orgs?limit=50' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/orgs?limit=50' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.list({ limit: 50 });"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.list({ limit: 50 });"
           }
         ]
       },
@@ -1056,7 +1056,7 @@
         "tags": [
           "Orgs"
         ],
-        "description": "Provisions a new tenant org. Master callers (1tap) provision on behalf of a startup. End-user callers create their own org and become `owner`.",
+        "description": "Provisions a new tenant org. Master callers provision on behalf of a tenant. End-user callers create their own org and become `owner`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1118,7 +1118,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -1454,12 +1454,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/orgs' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Acme Inc\",\"region\":\"eu\"}'"
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/orgs' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Acme Inc\",\"region\":\"eu\"}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.create({\n  \"name\": \"Acme Inc\",\n  \"region\": \"eu\"\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.create({\n  \"name\": \"Acme Inc\",\n  \"region\": \"eu\"\n});"
           }
         ]
       }
@@ -1490,7 +1490,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -1812,12 +1812,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/orgs/11111111-2222-3333-4444-555555555555' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/orgs/11111111-2222-3333-4444-555555555555' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.get(\"11111111-2222-3333-4444-555555555555\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.get(\"11111111-2222-3333-4444-555555555555\");"
           }
         ]
       },
@@ -1894,7 +1894,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -2257,12 +2257,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X PATCH 'https://api.myhr.example/v1/orgs/11111111-2222-3333-4444-555555555555' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Acme Holdings GmbH\"}'"
+            "source": "curl -X PATCH 'https://api.ourteammanagement.com/v1/orgs/11111111-2222-3333-4444-555555555555' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Acme Holdings GmbH\"}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.update(\"11111111-2222-3333-4444-555555555555\", {\n  \"name\": \"Acme Holdings GmbH\"\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.orgs.update(\"11111111-2222-3333-4444-555555555555\", {\n  \"name\": \"Acme Holdings GmbH\"\n});"
           }
         ]
       }
@@ -2303,7 +2303,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -2604,12 +2604,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/members' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/members' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.members.list();"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.members.list();"
           }
         ]
       }
@@ -2684,7 +2684,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -3035,12 +3035,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/invitations' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"newhire@acme.com\",\"role\":\"admin\"}'"
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/invitations' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"newhire@acme.com\",\"role\":\"admin\"}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.create({\n  \"email\": \"newhire@acme.com\",\n  \"role\": \"admin\"\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.create({\n  \"email\": \"newhire@acme.com\",\n  \"role\": \"admin\"\n});"
           }
         ]
       },
@@ -3079,7 +3079,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -3381,12 +3381,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/invitations' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/invitations' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.list();"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.list();"
           }
         ]
       }
@@ -3787,12 +3787,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/invitations/accept' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"token\":\"inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d\"}'"
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/invitations/accept' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"token\":\"inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d\"}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.accept(\"inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.invitations.accept(\"inv_4f3c1aa9e2b14d8e9c0f7d6b5e2a1c8d\");"
           }
         ]
       }
@@ -3857,7 +3857,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -4158,12 +4158,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/api-keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Production server (read+write)\"}'"
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/api-keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Production server (read+write)\"}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.apiKeys.create({\n  \"name\": \"Production server (read+write)\"\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.apiKeys.create({\n  \"name\": \"Production server (read+write)\"\n});"
           }
         ]
       },
@@ -4202,7 +4202,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -4502,12 +4502,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/api-keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/api-keys' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.apiKeys.list();"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.apiKeys.list();"
           }
         ]
       }
@@ -4604,7 +4604,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -4975,12 +4975,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/employees?limit=50&status=active' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/employees?limit=50&status=active' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.list({ status: \"active\", limit: 50 });"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.list({ status: \"active\", limit: 50 });"
           }
         ]
       },
@@ -5108,7 +5108,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -5509,12 +5509,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/employees' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\",\"jobTitle\":\"Staff Engineer\",\"department\":\"Engineering\"}'"
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/employees' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"ada@acme.com\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"country\":\"us\",\"startDate\":\"2026-06-01\",\"jobTitle\":\"Staff Engineer\",\"department\":\"Engineering\"}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.create({\n  \"email\": \"ada@acme.com\",\n  \"firstName\": \"Ada\",\n  \"lastName\": \"Lovelace\",\n  \"country\": \"us\",\n  \"startDate\": \"2026-06-01\",\n  \"jobTitle\": \"Staff Engineer\",\n  \"department\": \"Engineering\"\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.create({\n  \"email\": \"ada@acme.com\",\n  \"firstName\": \"Ada\",\n  \"lastName\": \"Lovelace\",\n  \"country\": \"us\",\n  \"startDate\": \"2026-06-01\",\n  \"jobTitle\": \"Staff Engineer\",\n  \"department\": \"Engineering\"\n});"
           }
         ]
       }
@@ -5565,7 +5565,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -5955,12 +5955,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.get(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.get(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
           }
         ]
       },
@@ -6086,7 +6086,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -6528,12 +6528,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X PATCH 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"jobTitle\":\"Principal Engineer\",\"status\":\"active\"}'"
+            "source": "curl -X PATCH 'https://api.ourteammanagement.com/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"jobTitle\":\"Principal Engineer\",\"status\":\"active\"}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.update(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\", {\n  \"jobTitle\": \"Principal Engineer\",\n  \"status\": \"active\"\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.update(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\", {\n  \"jobTitle\": \"Principal Engineer\",\n  \"status\": \"active\"\n});"
           }
         ]
       },
@@ -6582,7 +6582,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -6932,12 +6932,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X DELETE 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X DELETE 'https://api.ourteammanagement.com/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.delete(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.delete(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
           }
         ]
       }
@@ -6988,7 +6988,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -7395,12 +7395,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/export' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/employees/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/export' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.exportData(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.employees.exportData(\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\");"
           }
         ]
       }
@@ -7446,7 +7446,7 @@
                 "additionalProperties": false
               },
               "example": {
-                "url": "https://api.1tap.ai/webhooks/myhr",
+                "url": "https://api.example.com/webhooks/myhr",
                 "events": [
                   "employee.created",
                   "employee.updated"
@@ -7483,7 +7483,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -7571,7 +7571,7 @@
                 "example": {
                   "id": "eeeeeeee-aaaa-bbbb-cccc-dddddddddddd",
                   "orgId": "11111111-2222-3333-4444-555555555555",
-                  "url": "https://api.1tap.ai/webhooks/myhr",
+                  "url": "https://api.example.com/webhooks/myhr",
                   "events": [
                     "employee.created",
                     "employee.updated"
@@ -7838,12 +7838,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/webhook-endpoints' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"url\":\"https://api.1tap.ai/webhooks/myhr\",\"events\":[\"employee.created\",\"employee.updated\"]}'"
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/webhook-endpoints' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"url\":\"https://api.example.com/webhooks/myhr\",\"events\":[\"employee.created\",\"employee.updated\"]}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.create({\n  \"url\": \"https://api.1tap.ai/webhooks/myhr\",\n  \"events\": [\n    \"employee.created\",\n    \"employee.updated\"\n  ]\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.create({\n  \"url\": \"https://api.example.com/webhooks/myhr\",\n  \"events\": [\n    \"employee.created\",\n    \"employee.updated\"\n  ]\n});"
           }
         ]
       },
@@ -7881,7 +7881,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -7967,7 +7967,7 @@
                     {
                       "id": "eeeeeeee-aaaa-bbbb-cccc-dddddddddddd",
                       "orgId": "11111111-2222-3333-4444-555555555555",
-                      "url": "https://api.1tap.ai/webhooks/myhr",
+                      "url": "https://api.example.com/webhooks/myhr",
                       "events": [
                         "employee.created",
                         "employee.updated"
@@ -8194,12 +8194,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/webhook-endpoints' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/webhook-endpoints' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.list();"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.list();"
           }
         ]
       }
@@ -8249,7 +8249,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -8321,7 +8321,7 @@
                 "example": {
                   "id": "eeeeeeee-aaaa-bbbb-cccc-dddddddddddd",
                   "orgId": "11111111-2222-3333-4444-555555555555",
-                  "url": "https://api.1tap.ai/webhooks/myhr",
+                  "url": "https://api.example.com/webhooks/myhr",
                   "events": [
                     "employee.created",
                     "employee.updated"
@@ -8587,12 +8587,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.get(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.get(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\");"
           }
         ]
       },
@@ -8682,7 +8682,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -8765,7 +8765,7 @@
                 "example": {
                   "id": "eeeeeeee-aaaa-bbbb-cccc-dddddddddddd",
                   "orgId": "11111111-2222-3333-4444-555555555555",
-                  "url": "https://api.1tap.ai/webhooks/myhr",
+                  "url": "https://api.example.com/webhooks/myhr",
                   "events": [
                     "employee.created",
                     "employee.updated",
@@ -9032,12 +9032,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X PATCH 'https://api.myhr.example/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"events\":[\"employee.created\",\"employee.updated\",\"employee.deleted\"]}'"
+            "source": "curl -X PATCH 'https://api.ourteammanagement.com/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"events\":[\"employee.created\",\"employee.updated\",\"employee.deleted\"]}'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.update(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\", {\n  \"events\": [\n    \"employee.created\",\n    \"employee.updated\",\n    \"employee.deleted\"\n  ]\n});"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.update(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\", {\n  \"events\": [\n    \"employee.created\",\n    \"employee.updated\",\n    \"employee.deleted\"\n  ]\n});"
           }
         ]
       },
@@ -9086,7 +9086,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -9369,12 +9369,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X DELETE 'https://api.myhr.example/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X DELETE 'https://api.ourteammanagement.com/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.delete(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.delete(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\");"
           }
         ]
       }
@@ -9425,7 +9425,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -9513,7 +9513,7 @@
                 "example": {
                   "id": "eeeeeeee-aaaa-bbbb-cccc-dddddddddddd",
                   "orgId": "11111111-2222-3333-4444-555555555555",
-                  "url": "https://api.1tap.ai/webhooks/myhr",
+                  "url": "https://api.example.com/webhooks/myhr",
                   "events": [
                     "employee.created",
                     "employee.updated"
@@ -9780,12 +9780,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd/rotate-secret' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/webhook-endpoints/eeeeeeee-aaaa-bbbb-cccc-dddddddddddd/rotate-secret' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.rotateSecret(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookEndpoints.rotateSecret(\"eeeeeeee-aaaa-bbbb-cccc-dddddddddddd\");"
           }
         ]
       }
@@ -9885,7 +9885,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -10256,12 +10256,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/webhook-deliveries?limit=50&status=delivered' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/webhook-deliveries?limit=50&status=delivered' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookDeliveries.list({ status: \"delivered\", limit: 50 });"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookDeliveries.list({ status: \"delivered\", limit: 50 });"
           }
         ]
       }
@@ -10311,7 +10311,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -10701,12 +10701,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/webhook-deliveries/ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/webhook-deliveries/ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookDeliveries.get(\"ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookDeliveries.get(\"ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb\");"
           }
         ]
       }
@@ -10757,7 +10757,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -11199,12 +11199,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/webhook-deliveries/ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb/redeliver' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/webhook-deliveries/ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb/redeliver' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookDeliveries.redeliver(\"ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb\");"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.webhookDeliveries.redeliver(\"ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb\");"
           }
         ]
       }
@@ -11302,7 +11302,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -11639,7 +11639,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/time-off' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/time-off' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       },
@@ -11723,7 +11723,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -12095,7 +12095,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/time-off' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/time-off' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -12144,7 +12144,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -12505,7 +12505,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/time-off/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/time-off/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       }
@@ -12583,7 +12583,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -12996,7 +12996,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/time-off/{id}/decision' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/time-off/{id}/decision' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -13080,7 +13080,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -13413,7 +13413,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/documents' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/documents' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       },
@@ -13509,7 +13509,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -13877,7 +13877,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/documents' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/documents' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -13926,7 +13926,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -14283,7 +14283,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/documents/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/documents/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       },
@@ -14384,7 +14384,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -14752,7 +14752,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X PATCH 'https://api.myhr.example/v1/documents/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X PATCH 'https://api.ourteammanagement.com/v1/documents/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       },
@@ -14799,7 +14799,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -15104,7 +15104,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X DELETE 'https://api.myhr.example/v1/documents/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X DELETE 'https://api.ourteammanagement.com/v1/documents/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -15185,7 +15185,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -15526,7 +15526,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/reviews' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/reviews' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       },
@@ -15622,7 +15622,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -15998,7 +15998,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X POST 'https://api.myhr.example/v1/reviews' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X POST 'https://api.ourteammanagement.com/v1/reviews' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -16047,7 +16047,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -16412,7 +16412,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/reviews/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/reviews/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       },
@@ -16507,7 +16507,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -16883,7 +16883,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X PATCH 'https://api.myhr.example/v1/reviews/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X PATCH 'https://api.ourteammanagement.com/v1/reviews/{id}' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -16924,7 +16924,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -17242,7 +17242,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/company' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/company' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       },
@@ -17355,7 +17355,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -17684,7 +17684,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X PUT 'https://api.myhr.example/v1/company' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X PUT 'https://api.ourteammanagement.com/v1/company' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -17725,7 +17725,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -18012,7 +18012,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/settings' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/settings' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       },
@@ -18094,7 +18094,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           },
           {
             "schema": {
@@ -18392,7 +18392,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X PUT 'https://api.myhr.example/v1/settings' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
+            "source": "curl -X PUT 'https://api.ourteammanagement.com/v1/settings' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555' \\\n  -H 'Idempotency-Key: '\"$(uuidgen)\""
           }
         ]
       }
@@ -18433,7 +18433,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -18720,7 +18720,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/billing' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/billing' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       }
@@ -18761,7 +18761,7 @@
             "in": "header",
             "name": "x-actor",
             "required": false,
-            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log."
+            "description": "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log."
           }
         ],
         "security": [
@@ -19060,7 +19060,7 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/org-chart' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/org-chart' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY' \\\n  -H 'X-Tenant-Id: 11111111-2222-3333-4444-555555555555'"
           }
         ]
       }
@@ -19072,7 +19072,7 @@
         "tags": [
           "SuperAdmin"
         ],
-        "description": "Cross-tenant org list for MyHR ops humans (`is_super_admin = true`). Master + tenant-key callers are rejected — they have their own paths.",
+        "description": "Cross-tenant org list for OurTeamManagement ops humans (`is_super_admin = true`). Master + tenant-key callers are rejected — they have their own paths.",
         "parameters": [
           {
             "schema": {
@@ -19360,12 +19360,12 @@
           {
             "lang": "bash",
             "label": "curl",
-            "source": "curl -X GET 'https://api.myhr.example/v1/superadmin/orgs?limit=50' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
+            "source": "curl -X GET 'https://api.ourteammanagement.com/v1/superadmin/orgs?limit=50' \\\n  -H 'Authorization: Bearer $MYHR_API_KEY'"
           },
           {
             "lang": "javascript",
             "label": "@myhr/sdk",
-            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.myhr.example\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.superadmin.listOrgs({ limit: 50 });"
+            "source": "import { createClient } from \"@myhr/sdk\";\n\nconst myhr = createClient({\n  baseUrl: \"https://api.ourteammanagement.com\",\n  getToken: () => process.env.MYHR_API_KEY!,\n  defaultTenantId: \"11111111-2222-3333-4444-555555555555\",\n});\n\nawait myhr.superadmin.listOrgs({ limit: 50 });"
           }
         ]
       }
@@ -19373,7 +19373,7 @@
   },
   "servers": [
     {
-      "url": "https://api.myhr.example",
+      "url": "https://api.ourteammanagement.com",
       "description": "test"
     }
   ],
@@ -19443,7 +19443,7 @@
     },
     {
       "name": "SuperAdmin",
-      "description": "Cross-tenant ops for MyHR staff (`is_super_admin` users)."
+      "description": "Cross-tenant ops for OurTeamManagement staff (`is_super_admin` users)."
     },
     {
       "name": "Health",
@@ -19451,7 +19451,7 @@
     },
     {
       "name": "Webhooks",
-      "description": "Webhook endpoint management + delivery audit. Manage where MyHR delivers events with `/v1/webhook-endpoints/*`; inspect or replay attempts with `/v1/webhook-deliveries/*`. The event payloads MyHR actually POSTs are documented under the **Webhooks** section."
+      "description": "Webhook endpoint management + delivery audit. Manage where OurTeamManagement delivers events with `/v1/webhook-endpoints/*`; inspect or replay attempts with `/v1/webhook-deliveries/*`. The event payloads OurTeamManagement actually POSTs are documented under the **Webhooks** section."
     }
   ],
   "x-webhooks": {
@@ -19687,7 +19687,7 @@
           "Webhooks"
         ],
         "summary": "Fired ahead of a document's expiry",
-        "description": "Emitted at 30 / 14 / 7 / 1 days before `document.expiresAt` so 1tap can notify the employee or HR. Each window fires exactly once per document.",
+        "description": "Emitted at 30 / 14 / 7 / 1 days before `document.expiresAt` so the integrator can notify the employee or HR. Each window fires exactly once per document.",
         "security": [],
         "requestBody": {
           "required": true,

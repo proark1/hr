@@ -62,7 +62,7 @@ const Env = z
     // invitation emails are logged to stdout instead of sent.
     MAILNOW_API_URL: z.string().url().default("https://mailnowapi.com"),
     MAILNOW_API_KEY: z.string().optional(),
-    // Required when MAILNOW_API_KEY is set. e.g. "MyHR <noreply@myhr.eu>".
+    // Required when MAILNOW_API_KEY is set. e.g. "OurTeamManagement <noreply@ourteammanagement.com>".
     EMAIL_FROM: z.string().optional(),
   })
   .refine((d) => !d.AUTH_API_URL || (!!d.AUTH_CLIENT_ID && !!d.AUTH_CLIENT_SECRET), {

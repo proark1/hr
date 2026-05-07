@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-/** Header MyHR sets on every webhook delivery. */
+/** Header OurTeamManagement sets on every webhook delivery. */
 export const WEBHOOK_SIGNATURE_HEADER = "Webhook-Signature";
 
 /** Replay window: reject deliveries whose `t` is older than this. */

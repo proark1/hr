@@ -32,8 +32,8 @@ function generateToken(): { token: string; tokenHash: string } {
 
 function buildAcceptUrl(token: string): string {
   // For the master-only path we still need a URL to put in the email.
-  // Fall back to a localhost placeholder that 1tap can replace if they
-  // prefer their own UX.
+  // Fall back to a localhost placeholder that the operator can override
+  // via WEB_APP_URL if they prefer their own UX.
   const base = env.WEB_APP_URL ?? "http://localhost:3000";
   return `${base.replace(/\/$/, "")}/accept-invite/${token}`;
 }
@@ -62,8 +62,8 @@ const invitationRoutes: FastifyPluginAsyncZod = async (app) => {
       const invitedBy = caller.type === "user" ? caller.userId : null;
       if (!invitedBy) {
         // Machine callers must pretend to be someone — for now, require an
-        // existing user we can attribute to. Until we wire 1tap's actor into
-        // a "synthetic user", machine callers can't create invitations.
+        // existing user we can attribute to. Until we wire X-Actor through
+        // to a "synthetic user", machine callers can't create invitations.
         throw Errors.forbidden(
           "Invitations must be created by an authenticated user (machine callers not supported yet)",
         );

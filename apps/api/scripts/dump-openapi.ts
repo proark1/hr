@@ -14,7 +14,7 @@ import { resolve } from "node:path";
 process.env.NODE_ENV ??= "test";
 process.env.DATABASE_URL ??= "postgresql://stub:stub@localhost:5432/stub";
 process.env.MASTER_API_KEY ??= "0".repeat(32);
-process.env.PUBLIC_API_URL ??= "https://api.myhr.example";
+process.env.PUBLIC_API_URL ??= "https://api.ourteammanagement.com";
 // pg-boss would try to connect during plugin init otherwise.
 process.env.WEBHOOKS_DISABLED ??= "1";
 

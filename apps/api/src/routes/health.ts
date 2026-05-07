@@ -39,7 +39,7 @@ const healthRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async () => ({
-      name: "MyHR API",
+      name: "OurTeamManagement API",
       version: "0.0.1",
       docs: "https://github.com/proark1/hr",
     }),

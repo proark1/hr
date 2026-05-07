@@ -53,7 +53,7 @@ const ActorHeader = z.object({
     .string()
     .optional()
     .describe(
-      "Optional JSON `{ id?, email?, name? }` attributing this request to a specific 1tap user for the audit log.",
+      "Optional JSON `{ id?, email?, name? }` attributing this request to a specific user (in the master integrator's product) for the audit log.",
     ),
 });
 
