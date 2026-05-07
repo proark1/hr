@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PREFIX_LEN } from "./constants.js";
 
 export const PartnerStatus = z.enum(["active", "suspended"]);
 export type PartnerStatus = z.infer<typeof PartnerStatus>;
@@ -35,7 +36,9 @@ export const PartnerKey = z.object({
   id: z.string().uuid(),
   partnerId: z.string().uuid(),
   name: z.string(),
-  prefix: z.string().describe("First 12 chars of the key, used for display + lookup."),
+  prefix: z
+    .string()
+    .describe(`First ${PREFIX_LEN} chars of the key, used for display + lookup.`),
   lastUsedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   revokedAt: z.string().datetime().nullable(),

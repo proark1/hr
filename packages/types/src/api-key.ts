@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PREFIX_LEN } from "./constants.js";
 
 export const ApiKeyScope = z.enum(["master", "partner", "tenant"]);
 export type ApiKeyScope = z.infer<typeof ApiKeyScope>;
@@ -7,7 +8,9 @@ export type ApiKeyScope = z.infer<typeof ApiKeyScope>;
 export const ApiKey = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  prefix: z.string().describe("First 12 chars of the key, used for display + lookup."),
+  prefix: z
+    .string()
+    .describe(`First ${PREFIX_LEN} chars of the key, used for display + lookup.`),
   scope: ApiKeyScope,
   lastUsedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),

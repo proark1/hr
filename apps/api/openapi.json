@@ -3991,7 +3991,7 @@
                     },
                     "prefix": {
                       "type": "string",
-                      "description": "First 12 chars of the key, used for display + lookup."
+                      "description": "First 24 chars of the key, used for display + lookup."
                     },
                     "lastUsedAt": {
                       "type": "string",
@@ -4359,7 +4359,7 @@
                           },
                           "prefix": {
                             "type": "string",
-                            "description": "First 12 chars of the key, used for display + lookup."
+                            "description": "First 24 chars of the key, used for display + lookup."
                           },
                           "lastUsedAt": {
                             "type": "string",
@@ -6641,7 +6641,7 @@
                     },
                     "prefix": {
                       "type": "string",
-                      "description": "First 12 chars of the key, used for display + lookup."
+                      "description": "First 24 chars of the key, used for display + lookup."
                     },
                     "scope": {
                       "type": "string",
@@ -6984,7 +6984,7 @@
                           },
                           "prefix": {
                             "type": "string",
-                            "description": "First 12 chars of the key, used for display + lookup."
+                            "description": "First 24 chars of the key, used for display + lookup."
                           },
                           "scope": {
                             "type": "string",

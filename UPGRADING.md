@@ -121,11 +121,16 @@ If you don't have a clean record of which orgs each integrator created,
 the audit log can reconstruct it:
 
 ```sql
-SELECT DISTINCT (resource) FROM audit_events
+-- `resource` is stored as 'org:<uuid>'; substring strips the prefix so the
+-- result is paste-ready for the UPDATE in step 3 above.
+SELECT substring(resource from 5) AS org_id,
+       MIN(created_at)             AS first_created
+  FROM audit_events
  WHERE actor_type = 'master'
-   AND action = 'org.created'
+   AND action     = 'org.created'
    AND actor_email = 'ops@onetap.ai'  -- if X-Actor was used
-ORDER BY created_at;
+ GROUP BY resource
+ ORDER BY first_created;
 ```
 
 Without `X-Actor` attribution there's no automated way to tell apart "your

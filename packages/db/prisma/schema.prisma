@@ -134,7 +134,7 @@ model ApiKey {
   orgId       String?      @map("org_id") @db.Uuid
   partnerId   String?      @map("partner_id") @db.Uuid
   name        String
-  prefix      String       @unique // e.g. "mh_live_abcd1234efgh" (first 24 chars, for display + lookup; see PREFIX_LEN in plugins/auth/shared.ts)
+  prefix      String       @unique // e.g. "mh_live_abcd1234efgh" (first 24 chars, for display + lookup; see PREFIX_LEN in @myhr/types)
   hash        String       // sha256(secret), hex
   lastUsedAt  DateTime?    @map("last_used_at")
   createdAt   DateTime     @default(now()) @map("created_at")
