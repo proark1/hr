@@ -72,7 +72,7 @@ const Env = z
     // (partner id, name, status, ...). Signed with HMAC-SHA256 in the
     // `Webhook-Signature` header (Stripe-style `t=<unix>,v1=<hex>`).
     PARTNER_WEBHOOK_URL: z.string().url().optional(),
-    PARTNER_WEBHOOK_SECRET: z.string().min(16).optional(),
+    PARTNER_WEBHOOK_SECRET: z.string().min(32).optional(),
   })
   .refine((d) => !d.AUTH_API_URL || (!!d.AUTH_CLIENT_ID && !!d.AUTH_CLIENT_SECRET), {
     message: "AUTH_CLIENT_ID and AUTH_CLIENT_SECRET are required when AUTH_API_URL is set",

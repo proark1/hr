@@ -60,7 +60,12 @@ export async function deliverPartnerWebhook(
 ): Promise<boolean> {
   if (!env.PARTNER_WEBHOOK_URL || !env.PARTNER_WEBHOOK_SECRET) return false;
 
-  const body = JSON.stringify({ event: event.type, ...event, type: undefined });
+  // Restructure: `event` becomes the top-level discriminator field; the
+  // rest of the union members (partner, keyId, ...) sit alongside it.
+  // Destructure explicitly rather than relying on `type: undefined` +
+  // JSON.stringify skipping undefined — clearer for future readers.
+  const { type, ...rest } = event;
+  const body = JSON.stringify({ event: type, ...rest });
   const signature = sign(body, env.PARTNER_WEBHOOK_SECRET);
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
