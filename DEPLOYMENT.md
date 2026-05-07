@@ -58,6 +58,8 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 | `PUBLIC_API_URL` | `https://<railway-api-domain>` | Used as `servers[0].url` in the OpenAPI spec so Swagger UI's "Try it out" works. |
 | `FIELD_ENCRYPTION_KEY` | `openssl rand -base64 32` | Reserved for the next PR (sensitive HR fields). |
 | `WEBHOOK_SIGNING_SECRET` | `openssl rand -hex 32` | Reserved for the webhook delivery PR. |
+| `PARTNER_WEBHOOK_URL` | e.g. `https://<your-supabase-project>.functions.supabase.co/partner-events` | Optional. Outbound webhook fired on Partner lifecycle events (`partner.created`, `partner.suspended`, `partner.reactivated`, `partner.key.created`, `partner.key.revoked`) so the operator's CRM stays in sync automatically. **Metadata only — no plaintext key material is ever sent.** Unset = no forwarding. |
+| `PARTNER_WEBHOOK_SECRET` | `openssl rand -hex 32` | Required when `PARTNER_WEBHOOK_URL` is set. HMAC-SHA256 secret used to sign the `Webhook-Signature` header (Stripe-style `t=<unix>,v1=<hex>`); the receiving Edge Function should verify. |
 
 ## First-time setup
 
@@ -132,6 +134,81 @@ multi-partner design.
 **Suspension** (e.g. compromise, contract dispute): `PATCH /v1/partners/{id}`
 with `{"status":"suspended"}` immediately blocks every key for that partner
 at auth time without revoking individual keys. Re-activate with `{"status":"active"}`.
+
+### The dashboard alternative
+
+The web app has a Super Admin → Partners page at `/superadmin/partners` that
+covers all of the above without curl. Sign in as a user with
+`is_super_admin = true`, click "New partner", fill the form, and you'll land
+on the detail page where you mint the first key — the plaintext is shown
+once, with a copy button. No need to embed `MASTER_API_KEY` in your browser
+session; the dashboard authenticates with your user JWT.
+
+### Auto-syncing partners to your CRM (e.g. Supabase)
+
+If you set `PARTNER_WEBHOOK_URL` + `PARTNER_WEBHOOK_SECRET`, the API will
+POST to that URL on every Partner lifecycle event. Typical setup: point it
+at a Supabase Edge Function that upserts a row in your customer-management
+table.
+
+**Payload shape:**
+
+```jsonc
+{
+  "event": "partner.created",
+  // also: partner.suspended, partner.reactivated,
+  //       partner.key.created, partner.key.revoked
+  "partner": {
+    "id": "<uuid>",
+    "name": "OneTap.ai",
+    "status": "active",
+    "contactEmail": "ops@onetap.ai",
+    "createdAt": "2026-05-07T..."
+  },
+  // present on key.created / key.revoked:
+  "keyId": "<uuid>",
+  "keyName": "prod-2026-05"
+}
+```
+
+**Verification (in your Supabase Edge Function):**
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+const SECRET = Deno.env.get("PARTNER_WEBHOOK_SECRET")!;
+const REPLAY_WINDOW_SEC = 5 * 60;
+
+export default async function handler(req: Request) {
+  const raw = await req.text();
+  const header = req.headers.get("Webhook-Signature") ?? "";
+  const parts = Object.fromEntries(
+    header.split(",").map((kv) => {
+      const i = kv.indexOf("=");
+      return [kv.slice(0, i).trim(), kv.slice(i + 1).trim()];
+    }),
+  );
+  const t = Number(parts.t);
+  if (!Number.isFinite(t)) return new Response("bad sig", { status: 401 });
+  if (Math.abs(Date.now() / 1000 - t) > REPLAY_WINDOW_SEC) {
+    return new Response("expired", { status: 401 });
+  }
+  const expected = createHmac("sha256", SECRET).update(`${t}.${raw}`).digest("hex");
+  const a = Buffer.from(parts.v1 ?? "", "hex");
+  const b = Buffer.from(expected, "hex");
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return new Response("bad sig", { status: 401 });
+  }
+
+  const body = JSON.parse(raw);
+  // upsert into your Supabase table…
+  return new Response("ok", { status: 200 });
+}
+```
+
+**Plaintext keys are never in the payload.** You still hand the key to
+each partner manually — that property is intentional, so a leak in your
+CRM never compromises any partner credential.
 
 ## Custom domain (optional)
 

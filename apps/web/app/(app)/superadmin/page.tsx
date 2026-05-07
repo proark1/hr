@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getApiClient } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,18 @@ export default async function SuperAdminPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Super Admin</h1>
         <p className="text-sm text-muted-foreground mt-1">All tenants on the platform.</p>
       </header>
+
+      <nav className="flex gap-3 border-b text-sm">
+        <span className="px-1 pb-2 -mb-px border-b-2 border-foreground font-medium">
+          Orgs
+        </span>
+        <Link
+          href="/superadmin/partners"
+          className="px-1 pb-2 text-muted-foreground hover:text-foreground"
+        >
+          Partners
+        </Link>
+      </nav>
 
       <Card>
         <Table>

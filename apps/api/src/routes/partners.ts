@@ -13,6 +13,7 @@ import { withTenant } from "@myhr/db";
 import { Errors } from "../errors.js";
 import { errorResponses, masterReadHeaders, masterWriteHeaders } from "../lib/openapi.js";
 import { PREFIX_LEN } from "../plugins/auth/shared.js";
+import { deliverPartnerWebhook, type PartnerWebhookPayload } from "../lib/partner-webhook.js";
 
 const PageQuery = z.object({
   cursor: z.string().optional(),
@@ -57,6 +58,24 @@ function serializePartner(p: {
   };
 }
 
+/** Subset of a partner row pushed to the operator-side CRM webhook. Stays
+ *  metadata-only — no plaintext key material ever travels through here. */
+function webhookPayload(p: {
+  id: string;
+  name: string;
+  status: "active" | "suspended";
+  contactEmail: string | null;
+  createdAt: Date;
+}): PartnerWebhookPayload {
+  return {
+    id: p.id,
+    name: p.name,
+    status: p.status,
+    contactEmail: p.contactEmail,
+    createdAt: p.createdAt.toISOString(),
+  };
+}
+
 function serializePartnerKey(k: {
   id: string;
   partnerId: string | null;
@@ -86,14 +105,14 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["Partners"],
         operationId: "createPartner",
-        summary: "Create partner (root master only)",
+        summary: "Create partner (operator only)",
         description:
           "Provisions a new Partner — an external SaaS integrator that will provision HR orgs on behalf of their own customers. Returns the partner record; mint keys via POST /v1/partners/:id/keys.",
         headers: masterWriteHeaders,
         body: PartnerCreate,
         response: { 201: Partner, ...errorResponses(400, 401, 403, 409, 429, 500) },
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"], requireSuperAdmin: true },
     },
     async (req, reply) => {
       const created = await withTenant(app.prisma, { orgId: null, isMaster: true }, (tx) =>
@@ -107,6 +126,12 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       );
       req.auditAction = "partner.created";
       req.auditResource = `partner:${created.id}`;
+      // Best-effort sync to the operator's CRM (Supabase, etc.). Errors
+      // surface in logs only — the partner row is already committed.
+      await deliverPartnerWebhook(req.log, {
+        type: "partner.created",
+        partner: webhookPayload(created),
+      });
       reply.code(201);
       return serializePartner(created);
     },
@@ -118,13 +143,13 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["Partners"],
         operationId: "listPartners",
-        summary: "List partners (root master only)",
+        summary: "List partners (operator only)",
         description: "Returns every Partner registered on this deployment.",
         headers: masterReadHeaders,
         querystring: PageQuery,
         response: { 200: PartnerListResponse, ...errorResponses(400, 401, 403, 429, 500) },
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"], requireSuperAdmin: true },
     },
     async (req) => {
       const { cursor, limit } = req.query;
@@ -151,12 +176,12 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["Partners"],
         operationId: "getPartner",
-        summary: "Get partner (root master only)",
+        summary: "Get partner (operator only)",
         headers: masterReadHeaders,
         params: z.object({ id: z.string().uuid() }),
         response: { 200: Partner, ...errorResponses(400, 401, 403, 404, 429, 500) },
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"], requireSuperAdmin: true },
     },
     async (req) => {
       const partner = await withTenant(app.prisma, { orgId: null, isMaster: true }, (tx) =>
@@ -175,7 +200,7 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["Partners"],
         operationId: "updatePartner",
-        summary: "Update partner (root master only)",
+        summary: "Update partner (operator only)",
         description:
           "Rename a partner, edit contact / notes, or suspend / re-activate. Suspending a partner immediately blocks all of their keys at auth time.",
         headers: masterWriteHeaders,
@@ -183,10 +208,10 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
         body: PartnerUpdate,
         response: { 200: Partner, ...errorResponses(400, 401, 403, 404, 409, 429, 500) },
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"], requireSuperAdmin: true },
     },
     async (req) => {
-      const updated = await withTenant(
+      const { updated, statusTransition } = await withTenant(
         app.prisma,
         { orgId: null, isMaster: true },
         async (tx) => {
@@ -205,13 +230,18 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
           if (req.body.name !== undefined) data.name = req.body.name;
           if (req.body.contactEmail !== undefined) data.contactEmail = req.body.contactEmail;
           if (req.body.notes !== undefined) data.notes = req.body.notes;
+
+          let statusTransition: "suspended" | "reactivated" | null = null;
           if (req.body.status !== undefined && req.body.status !== existing.status) {
             data.status = req.body.status;
             data.suspendedAt = req.body.status === "suspended" ? new Date() : null;
+            statusTransition =
+              req.body.status === "suspended" ? "suspended" : "reactivated";
           }
 
           try {
-            return await tx.partner.update({ where: { id: req.params.id }, data });
+            const row = await tx.partner.update({ where: { id: req.params.id }, data });
+            return { updated: row, statusTransition };
           } catch (err) {
             // Defense in depth: even though we just read the row, a
             // concurrent delete could leave us racing with P2025.
@@ -226,6 +256,15 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       );
       req.auditAction = "partner.updated";
       req.auditResource = `partner:${updated.id}`;
+      if (statusTransition) {
+        await deliverPartnerWebhook(req.log, {
+          type:
+            statusTransition === "suspended"
+              ? "partner.suspended"
+              : "partner.reactivated",
+          partner: webhookPayload(updated),
+        });
+      }
       return serializePartner(updated);
     },
   );
@@ -238,7 +277,7 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["Partners"],
         operationId: "createPartnerKey",
-        summary: "Mint a partner-scoped API key (root master only)",
+        summary: "Mint a partner-scoped API key (operator only)",
         description:
           "Generates a new partner-scoped API key. The plaintext value is returned once and never again — store it immediately. Used by the partner integrator to authenticate cross-tenant within their own orgs.",
         headers: masterWriteHeaders,
@@ -246,41 +285,59 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
         body: PartnerKeyCreate,
         response: { 201: PartnerKeyCreated, ...errorResponses(400, 401, 403, 404, 429, 500) },
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"], requireSuperAdmin: true },
     },
     async (req, reply) => {
       const partnerId = req.params.id;
       const { plaintext, prefix, hash } = generateKey();
 
-      const row = await withTenant(app.prisma, { orgId: null, isMaster: true }, async (tx) => {
-        const partner = await tx.partner.findUnique({
-          where: { id: partnerId },
-          select: { id: true },
-        });
-        if (!partner) throw Errors.notFound();
-        return tx.apiKey.create({
-          data: {
-            scope: "partner",
-            partnerId,
-            name: req.body.name,
-            prefix,
-            hash,
-          },
-          select: {
-            id: true,
-            partnerId: true,
-            name: true,
-            prefix: true,
-            lastUsedAt: true,
-            createdAt: true,
-            revokedAt: true,
-          },
-        });
-      });
+      const { row, partner } = await withTenant(
+        app.prisma,
+        { orgId: null, isMaster: true },
+        async (tx) => {
+          const partner = await tx.partner.findUnique({
+            where: { id: partnerId },
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              contactEmail: true,
+              createdAt: true,
+            },
+          });
+          if (!partner) throw Errors.notFound();
+          const row = await tx.apiKey.create({
+            data: {
+              scope: "partner",
+              partnerId,
+              name: req.body.name,
+              prefix,
+              hash,
+            },
+            select: {
+              id: true,
+              partnerId: true,
+              name: true,
+              prefix: true,
+              lastUsedAt: true,
+              createdAt: true,
+              revokedAt: true,
+            },
+          });
+          return { row, partner };
+        },
+      );
 
       req.auditAction = "partner_key.created";
       req.auditResource = `partner_key:${row.id}`;
       req.auditMetadata = { partnerId };
+      // Webhook fires the metadata only — never the plaintext key.
+      await deliverPartnerWebhook(req.log, {
+        type: "partner.key.created",
+        partner: webhookPayload(partner),
+        keyId: row.id,
+        keyName: row.name,
+      });
       reply.code(201);
       return { ...serializePartnerKey(row), key: plaintext };
     },
@@ -292,14 +349,14 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["Partners"],
         operationId: "listPartnerKeys",
-        summary: "List partner keys (root master only)",
+        summary: "List partner keys (operator only)",
         description:
           "Returns metadata for every partner-scoped key (active and revoked) issued to the given partner. Plaintext keys are never returned.",
         headers: masterReadHeaders,
         params: z.object({ id: z.string().uuid() }),
         response: { 200: PartnerKeyListResponse, ...errorResponses(400, 401, 403, 404, 429, 500) },
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"], requireSuperAdmin: true },
     },
     async (req) => {
       const partnerId = req.params.id;
@@ -335,34 +392,61 @@ const partnerRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["Partners"],
         operationId: "revokePartnerKey",
-        summary: "Revoke a partner key (root master only)",
+        summary: "Revoke a partner key (operator only)",
         description:
           "Revokes a partner-scoped API key. Subsequent requests using the key fail with 401 within one transaction's worth of cache lag. The row is kept (with `revoked_at` set) for audit history.",
         headers: masterWriteHeaders,
         params: z.object({ id: z.string().uuid(), keyId: z.string().uuid() }),
         response: errorResponses(400, 401, 403, 404, 429, 500),
       },
-      config: { masterOnly: true },
+      config: { allowedCallers: ["master", "user"], requireSuperAdmin: true },
     },
     async (req, reply) => {
       const { id: partnerId, keyId } = req.params;
-      await withTenant(app.prisma, { orgId: null, isMaster: true }, async (tx) => {
-        const key = await tx.apiKey.findFirst({
-          where: { id: keyId, partnerId, scope: "partner" },
-          select: { id: true, revokedAt: true },
-        });
-        if (!key) throw Errors.notFound();
-        // Idempotent: revoking an already-revoked key is a no-op.
-        if (!key.revokedAt) {
-          await tx.apiKey.update({
-            where: { id: keyId },
-            data: { revokedAt: new Date() },
+      const result = await withTenant(
+        app.prisma,
+        { orgId: null, isMaster: true },
+        async (tx) => {
+          const partner = await tx.partner.findUnique({
+            where: { id: partnerId },
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              contactEmail: true,
+              createdAt: true,
+            },
           });
-        }
-      });
+          if (!partner) throw Errors.notFound();
+          const key = await tx.apiKey.findFirst({
+            where: { id: keyId, partnerId, scope: "partner" },
+            select: { id: true, name: true, revokedAt: true },
+          });
+          if (!key) throw Errors.notFound();
+          // Idempotent: revoking an already-revoked key is a no-op.
+          const wasAlreadyRevoked = key.revokedAt !== null;
+          if (!wasAlreadyRevoked) {
+            await tx.apiKey.update({
+              where: { id: keyId },
+              data: { revokedAt: new Date() },
+            });
+          }
+          return { partner, keyName: key.name, wasAlreadyRevoked };
+        },
+      );
       req.auditAction = "partner_key.revoked";
       req.auditResource = `partner_key:${keyId}`;
       req.auditMetadata = { partnerId };
+      // Skip the webhook on no-op revocations so the operator's CRM
+      // doesn't get duplicate events from idempotent retries.
+      if (!result.wasAlreadyRevoked) {
+        await deliverPartnerWebhook(req.log, {
+          type: "partner.key.revoked",
+          partner: webhookPayload(result.partner),
+          keyId,
+          keyName: result.keyName,
+        });
+      }
       reply.code(204).send();
     },
   );

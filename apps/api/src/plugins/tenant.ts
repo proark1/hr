@@ -135,9 +135,17 @@ export default fp(async (app) => {
       }
     }
 
-    // 5. requireSuperAdmin: only super-admin user callers pass.
+    // 5. requireSuperAdmin: operator-level routes. Root master callers
+    //    pass automatically (they're more privileged than any user); user
+    //    callers must have isSuperAdmin=true. Partner and tenant_key
+    //    callers are rejected — these are integrator credentials, not
+    //    operator credentials. (Pair with allowedCallers to constrain
+    //    further when needed.)
     if (cfg.requireSuperAdmin) {
-      if (caller.type !== "user" || !caller.isSuperAdmin) {
+      const isOperator =
+        caller.type === "master" ||
+        (caller.type === "user" && caller.isSuperAdmin);
+      if (!isOperator) {
         throw Errors.forbidden("Super admin only");
       }
     }
