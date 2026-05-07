@@ -22,7 +22,11 @@ export type AuthClaims = JWTPayload & {
   sub: string;
   email: string;
   name?: string;
-  is_super_admin?: boolean;
+  // Identity claims only. HR-specific authorization (isSuperAdmin, etc.)
+  // is intentionally NOT read from the JWT — the auth service is the
+  // source of truth for *who* the user is, not for *what they can do*
+  // inside HR. HR-owned authorization flags live on our `users` table;
+  // see plugins/auth/user.ts.
 };
 
 type Verifier = {
