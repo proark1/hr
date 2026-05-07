@@ -18,25 +18,25 @@ const SECTIONS: Section[] = [
     items: [
       { href: "/overview", label: "Overview" },
       { href: "/employees", label: "Employees" },
-      { href: "/time-off", label: "Time off", soon: true },
-      { href: "/documents", label: "Documents", soon: true },
-      { href: "/org-chart", label: "Org chart", soon: true },
-      { href: "/reviews", label: "Reviews", soon: true },
+      { href: "/time-off", label: "Time off" },
+      { href: "/documents", label: "Documents" },
+      { href: "/org-chart", label: "Org chart" },
+      { href: "/reviews", label: "Reviews" },
     ],
   },
   {
     label: "Workspace",
     items: [
       { href: "/api-keys", label: "API Keys" },
-      { href: "/webhooks", label: "Webhooks", soon: true },
-      { href: "/company", label: "Company", soon: true },
-      { href: "/billing", label: "Billing", soon: true },
+      { href: "/webhooks", label: "Webhooks" },
+      { href: "/company", label: "Company" },
+      { href: "/billing", label: "Billing" },
     ],
   },
   {
     label: "Account",
     items: [
-      { href: "/settings", label: "Settings", soon: true },
+      { href: "/settings", label: "Settings" },
       { href: "/admin", label: "Admin Panel" },
       { href: "/superadmin", label: "Super Admin", superAdminOnly: true },
     ],

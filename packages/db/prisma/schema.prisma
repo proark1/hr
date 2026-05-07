@@ -54,12 +54,17 @@ model Org {
   updatedAt            DateTime    @updatedAt @map("updated_at")
   deletedAt            DateTime?   @map("deleted_at")
 
-  employees   Employee[]
-  apiKeys     ApiKey[]
-  auditEvents AuditEvent[]
-  webhooks    WebhookEndpoint[]
-  memberships OrgMembership[]
-  invitations Invitation[]
+  employees       Employee[]
+  apiKeys         ApiKey[]
+  auditEvents     AuditEvent[]
+  webhooks        WebhookEndpoint[]
+  memberships     OrgMembership[]
+  invitations     Invitation[]
+  timeOffRequests TimeOffRequest[]
+  documents       Document[]
+  reviews         PerformanceReview[]
+  companyProfile  CompanyProfile?
+  settings        OrgSettings?
 
   @@map("orgs")
 }
@@ -128,8 +133,11 @@ model Employee {
   // so a manager cannot reference an employee from a different tenant — FK
   // checks bypass RLS, so the orgId in the FK is the only place this is
   // enforced at the storage layer.
-  manager  Employee?  @relation("EmployeeManager", fields: [managerId, orgId], references: [id, orgId])
-  reports  Employee[] @relation("EmployeeManager")
+  manager         Employee?           @relation("EmployeeManager", fields: [managerId, orgId], references: [id, orgId])
+  reports         Employee[]          @relation("EmployeeManager")
+  timeOffRequests TimeOffRequest[]
+  documents       Document[]
+  reviewsAbout    PerformanceReview[] @relation("ReviewSubject")
 
   @@unique([id, orgId])
   @@unique([orgId, email])
@@ -362,4 +370,158 @@ model Invitation {
   @@index([orgId])
   @@index([email])
   @@map("invitations")
+}
+
+// -- Time off ---------------------------------------------------------------
+
+enum TimeOffType {
+  vacation
+  sick
+  personal
+  unpaid
+  parental
+}
+
+enum TimeOffStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+model TimeOffRequest {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId        String        @map("org_id") @db.Uuid
+  employeeId   String        @map("employee_id") @db.Uuid
+  type         TimeOffType
+  startDate    DateTime      @map("start_date") @db.Date
+  endDate      DateTime      @map("end_date") @db.Date
+  status       TimeOffStatus @default(pending)
+  reason       String?
+  decisionNote String?       @map("decision_note")
+  decidedAt    DateTime?     @map("decided_at")
+  decidedBy    String?       @map("decided_by") // user id of approver
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@index([orgId, employeeId])
+  @@index([orgId, startDate])
+  @@map("time_off_requests")
+}
+
+// -- Documents --------------------------------------------------------------
+
+enum DocumentType {
+  contract
+  offer_letter
+  id_document
+  policy
+  certificate
+  other
+}
+
+model Document {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId       String       @map("org_id") @db.Uuid
+  /// null = org-level document (handbook, policy). Otherwise tied to an employee.
+  employeeId  String?      @map("employee_id") @db.Uuid
+  name        String
+  type        DocumentType @default(other)
+  /// Externally-hosted URL or storage pointer. We don't host blobs in this MVP.
+  fileUrl     String?      @map("file_url")
+  mimeType    String?      @map("mime_type")
+  sizeBytes   Int?         @map("size_bytes")
+  expiresAt   DateTime?    @map("expires_at")
+  notes       String?
+  uploadedBy  String?      @map("uploaded_by") // user id
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  deletedAt   DateTime?    @map("deleted_at")
+
+  org      Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId])
+  @@index([orgId, type])
+  @@index([orgId, expiresAt])
+  @@map("documents")
+}
+
+// -- Performance reviews ----------------------------------------------------
+
+enum ReviewStatus {
+  draft
+  published
+  acknowledged
+}
+
+model PerformanceReview {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId        String       @map("org_id") @db.Uuid
+  employeeId   String       @map("employee_id") @db.Uuid
+  reviewerId   String       @map("reviewer_id") // user id of the reviewer
+  periodStart  DateTime     @map("period_start") @db.Date
+  periodEnd    DateTime     @map("period_end") @db.Date
+  status       ReviewStatus @default(draft)
+  rating       Int?         // optional 1..5
+  summary      String?
+  strengths    String?
+  growthAreas  String?      @map("growth_areas")
+  goals        String?
+  publishedAt  DateTime?    @map("published_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee @relation("ReviewSubject", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId])
+  @@index([orgId, status])
+  @@map("performance_reviews")
+}
+
+// -- Company profile (singleton per org) ------------------------------------
+
+model CompanyProfile {
+  orgId         String   @id @map("org_id") @db.Uuid
+  legalName     String?  @map("legal_name")
+  displayName   String?  @map("display_name")
+  taxId         String?  @map("tax_id")
+  websiteUrl    String?  @map("website_url")
+  supportEmail  String?  @map("support_email")
+  logoUrl       String?  @map("logo_url")
+  addressLine1  String?  @map("address_line1")
+  addressLine2  String?  @map("address_line2")
+  city          String?
+  region        String?
+  postalCode    String?  @map("postal_code")
+  country       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("company_profiles")
+}
+
+// -- Org settings (singleton per org) ---------------------------------------
+
+model OrgSettings {
+  orgId              String   @id @map("org_id") @db.Uuid
+  defaultCountry     String?  @map("default_country")
+  weekStartsOn       Int      @default(1) @map("week_starts_on") // 0=Sun..6=Sat
+  dateFormat         String   @default("YYYY-MM-DD") @map("date_format")
+  timezone           String   @default("UTC")
+  locale             String   @default("en-US")
+  fiscalYearStartMonth Int    @default(1) @map("fiscal_year_start_month")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("org_settings")
 }

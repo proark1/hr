@@ -45,6 +45,13 @@ import apiKeyRoutes from "./routes/api-keys.js";
 import superAdminRoutes from "./routes/superadmin.js";
 import webhookEndpointRoutes from "./routes/webhook-endpoints.js";
 import webhookDeliveryRoutes from "./routes/webhook-deliveries.js";
+import timeOffRoutes from "./routes/time-off.js";
+import documentRoutes from "./routes/documents.js";
+import reviewRoutes from "./routes/reviews.js";
+import companyRoutes from "./routes/company.js";
+import settingsRoutes from "./routes/settings.js";
+import billingRoutes from "./routes/billing.js";
+import orgChartRoutes from "./routes/org-chart.js";
 
 export async function buildServer() {
   const loggerOpts: Record<string, unknown> = {
@@ -133,6 +140,13 @@ export async function buildServer() {
         { name: "Invitations", description: "Invite-by-email flow for adding members." },
         { name: "ApiKeys", description: "Tenant-scoped API keys minted from the dashboard." },
         { name: "Employees", description: "Employee records scoped to a tenant org." },
+        { name: "TimeOff", description: "Time-off requests with simple approve/reject flow." },
+        { name: "Documents", description: "Document metadata (contracts, policies). Externally-hosted blobs in v1." },
+        { name: "Reviews", description: "Performance reviews with draft → published lifecycle." },
+        { name: "OrgChart", description: "Hierarchy auto-derived from employee manager relationships." },
+        { name: "Company", description: "Singleton company profile (legal name, address, branding)." },
+        { name: "Settings", description: "Singleton org-level settings (locale, timezone, fiscal year)." },
+        { name: "Billing", description: "Read-only snapshot of plan and seat usage." },
         { name: "SuperAdmin", description: "Cross-tenant ops for MyHR staff (`is_super_admin` users)." },
         { name: "Health", description: "Liveness and service metadata." },
       ],
@@ -216,6 +230,13 @@ export async function buildServer() {
   await app.register(employeeRoutes, { prefix: "/v1/employees" });
   await app.register(webhookEndpointRoutes, { prefix: "/v1/webhook-endpoints" });
   await app.register(webhookDeliveryRoutes, { prefix: "/v1/webhook-deliveries" });
+  await app.register(timeOffRoutes, { prefix: "/v1/time-off" });
+  await app.register(documentRoutes, { prefix: "/v1/documents" });
+  await app.register(reviewRoutes, { prefix: "/v1/reviews" });
+  await app.register(companyRoutes, { prefix: "/v1/company" });
+  await app.register(settingsRoutes, { prefix: "/v1/settings" });
+  await app.register(billingRoutes, { prefix: "/v1/billing" });
+  await app.register(orgChartRoutes, { prefix: "/v1/org-chart" });
   await app.register(superAdminRoutes, { prefix: "/v1/superadmin" });
 
   return app;
