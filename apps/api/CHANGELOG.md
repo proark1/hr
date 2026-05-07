@@ -13,6 +13,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Super Admin → Partners dashboard.** The `/v1/partners*` endpoints,
+  previously root-master-only, now also accept user-session callers with
+  `is_super_admin = true`. Pairs with a new web UI at
+  `/superadmin/partners` (list, create, mint additional keys, revoke
+  keys, suspend / reactivate) so operators can manage partners without
+  ever embedding `MASTER_API_KEY` in their browser session. The root
+  master still works for break-glass and CI scripting.
+  - Internally: `requireSuperAdmin` is now an "operator-level" gate —
+    admits both root master callers (`type === "master"`) and superadmin
+    user callers, rejects partner / tenant_key / non-admin user. Existing
+    `/v1/superadmin/*` routes pick up the same broadening.
+- **Outbound webhook for Partner lifecycle events.** New optional env
+  vars `PARTNER_WEBHOOK_URL` + `PARTNER_WEBHOOK_SECRET`. When set, the
+  API POSTs a signed JSON body to the URL on `partner.created`,
+  `partner.suspended`, `partner.reactivated`, `partner.key.created`, and
+  `partner.key.revoked`. Intended for keeping the operator's CRM (e.g.
+  Supabase) in sync automatically. **Metadata only** — no plaintext key
+  material is ever forwarded. HMAC-SHA256 signed in the
+  `Webhook-Signature` header (`t=<unix>,v1=<hex>`, same scheme as
+  outbound tenant webhooks). Best-effort delivery (5s timeout, no
+  retries; failures log loud but don't roll back the DB write).
+  See `DEPLOYMENT.md` for a sample Supabase Edge Function verifier.
 - **Partner caller type — multi-master integrators.** A new auth tier sits
   between the root master (env `MASTER_API_KEY`) and tenant keys: a
   `Partner` represents an external SaaS integrator (e.g. OneTap.ai) that

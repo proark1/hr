@@ -64,6 +64,15 @@ const Env = z
     MAILNOW_API_KEY: z.string().optional(),
     // Required when MAILNOW_API_KEY is set. e.g. "OurTeamManagement <noreply@ourteammanagement.com>".
     EMAIL_FROM: z.string().optional(),
+    // Outbound webhook for Partner lifecycle events (created / suspended /
+    // reactivated / key.revoked). Operator-only; meant for the operator's
+    // CRM (Supabase Edge Function, etc.) to keep partner records in
+    // sync automatically. Optional — unset means events are not
+    // forwarded. NEVER carries plaintext key material; only metadata
+    // (partner id, name, status, ...). Signed with HMAC-SHA256 in the
+    // `Webhook-Signature` header (Stripe-style `t=<unix>,v1=<hex>`).
+    PARTNER_WEBHOOK_URL: z.string().url().optional(),
+    PARTNER_WEBHOOK_SECRET: z.string().min(32).optional(),
   })
   .refine((d) => !d.AUTH_API_URL || (!!d.AUTH_CLIENT_ID && !!d.AUTH_CLIENT_SECRET), {
     message: "AUTH_CLIENT_ID and AUTH_CLIENT_SECRET are required when AUTH_API_URL is set",
@@ -72,6 +81,10 @@ const Env = z
   .refine((d) => !d.MAILNOW_API_KEY || !!d.EMAIL_FROM, {
     message: "EMAIL_FROM is required when MAILNOW_API_KEY is set",
     path: ["EMAIL_FROM"],
+  })
+  .refine((d) => !d.PARTNER_WEBHOOK_URL || !!d.PARTNER_WEBHOOK_SECRET, {
+    message: "PARTNER_WEBHOOK_SECRET is required when PARTNER_WEBHOOK_URL is set",
+    path: ["PARTNER_WEBHOOK_SECRET"],
   });
 
 export const env = Env.parse(process.env);
