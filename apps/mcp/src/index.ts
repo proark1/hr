@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * MyHR MCP server.
+ * OurTeamManagement MCP server.
  *
- * Wraps the MyHR REST API as MCP tools so agents (Claude, etc.) can act on
- * HR data with the same surface 1tap's backend uses.
+ * Wraps the OurTeamManagement REST API as MCP tools so agents (Claude, etc.) can act on
+ * HR data with the same surface backend integrations use.
  *
- * Auth: the MCP server is configured with the master API key + a tenant id.
- * One MCP server instance = one tenant scope. 1tap spawns/configures a server
- * per startup they want to give an agent access to.
+ * Auth: the MCP server is configured with an API key + a tenant id.
+ * One MCP server instance = one tenant scope. The integrating product
+ * spawns/configures a server per tenant it wants to give an agent access to.
  *
  * Transport: stdio (the standard MCP transport). HTTP transport can be added
- * later if 1tap wants to expose it as a hosted endpoint.
+ * later if a hosted endpoint is desired.
  */
 import crypto from "node:crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -58,7 +58,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   const res = await fetch(`${cfg.MYHR_API_URL}${path}`, init);
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(`MyHR API ${method} ${path} → ${res.status}: ${text}`);
+    throw new Error(`OurTeamManagement API ${method} ${path} → ${res.status}: ${text}`);
   }
   return text ? (JSON.parse(text) as T) : (undefined as T);
 }

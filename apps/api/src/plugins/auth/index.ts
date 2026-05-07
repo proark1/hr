@@ -5,7 +5,7 @@
  *
  *   1. Bearer token starting with "mh_": try master env match first, then
  *      look up in api_keys for tenant-scoped keys. Master callers may
- *      attribute the request to a 1tap user via X-Actor.
+ *      attribute the request to a specific user via X-Actor.
  *
  *   2. Any other Bearer token: try the external auth service (proark1/auth)
  *      JWT verification. The web app forwards the user's access token; we

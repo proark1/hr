@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 /** Header value emitted on every webhook delivery. Format mirrors Stripe's
- *  `t=<unix-seconds>,v1=<hex-hmac-sha256>` so 1tap can reuse standard
+ *  `t=<unix-seconds>,v1=<hex-hmac-sha256>` so consumers can reuse standard
  *  verification helpers if they want.
  *
  *  Body MUST be the raw request bytes the consumer received — JSON.stringify

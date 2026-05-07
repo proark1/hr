@@ -27,18 +27,18 @@ export async function sendInvitationEmail(
   log: Logger,
 ): Promise<void> {
   const inviter = input.inviterName ?? input.inviterEmail;
-  const subject = `You've been invited to ${input.orgName} on MyHR`;
+  const subject = `You've been invited to ${input.orgName} on OurTeamManagement`;
   const text = [
     `Hi,`,
     ``,
-    `${inviter} invited you to join ${input.orgName} on MyHR as ${input.role}.`,
+    `${inviter} invited you to join ${input.orgName} on OurTeamManagement as ${input.role}.`,
     ``,
     `Accept the invitation:`,
     input.acceptUrl,
     ``,
     `This link expires on ${input.expiresAt.toUTCString()}.`,
     ``,
-    `— MyHR`,
+    `— OurTeamManagement`,
   ].join("\n");
 
   const html = `
@@ -46,7 +46,7 @@ export async function sendInvitationEmail(
       <h1 style="font-size: 20px; margin: 0 0 16px;">You've been invited to ${escapeHtml(input.orgName)}</h1>
       <p style="font-size: 15px; line-height: 1.5; color: #333;">
         ${escapeHtml(inviter)} invited you to join <strong>${escapeHtml(input.orgName)}</strong>
-        on MyHR as a <strong>${escapeHtml(input.role)}</strong>.
+        on OurTeamManagement as a <strong>${escapeHtml(input.role)}</strong>.
       </p>
       <p style="margin: 24px 0;">
         <a href="${input.acceptUrl}"

@@ -1,6 +1,6 @@
 # Deployment
 
-MyHR runs as two services + one Postgres, plus the external [proark1/auth](https://github.com/proark1/auth) service for end-user identity. The web app and API talk to each other; both talk to the same Postgres. The web app talks to the auth service server-side; the API verifies access tokens against the auth service's JWKS.
+OurTeamManagement runs as two services + one Postgres, plus the external [proark1/auth](https://github.com/proark1/auth) service for end-user identity. The web app and API talk to each other; both talk to the same Postgres. The web app talks to the auth service server-side; the API verifies access tokens against the auth service's JWKS.
 
 ```
                       ┌────────────────────┐         ┌──────────────────────┐
@@ -11,7 +11,7 @@ MyHR runs as two services + one Postgres, plus the external [proark1/auth](https
                                 │  service JWT)                │ JWKS
                                 ▼                              ▼
                       ┌────────────────────┐         (verifies access tokens)
-1tap (master key) ───►│  Railway: apps/api │
+   master key ──────►│  Railway: apps/api │
                       │                    │
                       └─────────┬──────────┘
                                 │
@@ -23,7 +23,7 @@ MyHR runs as two services + one Postgres, plus the external [proark1/auth](https
 
 ## Env-var matrix
 
-The auth service is the source of truth for end-user identity. Both MyHR services point at the same auth instance and authenticate with the same OAuth client (`AUTH_CLIENT_ID` / `AUTH_CLIENT_SECRET`). Issuer + audience are auto-discovered (`/.well-known/openid-configuration` + `/v1/clients/me`) so they don't appear in the env matrix.
+The auth service is the source of truth for end-user identity. Both OurTeamManagement services point at the same auth instance and authenticate with the same OAuth client (`AUTH_CLIENT_ID` / `AUTH_CLIENT_SECRET`). Issuer + audience are auto-discovered (`/.well-known/openid-configuration` + `/v1/clients/me`) so they don't appear in the env matrix.
 
 ### Vercel (`apps/web`)
 
@@ -47,13 +47,13 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 |---|---|---|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (Reference) | Internal Railway URL — fast, doesn't egress. |
 | `DIRECT_DATABASE_URL` | same | |
-| `MASTER_API_KEY` | `mh_live_$(openssl rand -hex 32)` | 1tap's only credential. Share out-of-band. |
+| `MASTER_API_KEY` | `mh_live_$(openssl rand -hex 32)` | The operator's bootstrap credential — used by your backend for cross-tenant calls. Share out-of-band; rotate by issuing a new one and updating the env. |
 | `AUTH_API_URL` | same as Vercel `AUTH_API_URL` | Used to fetch the JWKS for verifying access tokens. |
 | `AUTH_CLIENT_ID` | same as Vercel `AUTH_CLIENT_ID` | Used to call `/v1/clients/me` at boot to discover the audience. |
 | `AUTH_CLIENT_SECRET` | same as Vercel `AUTH_CLIENT_SECRET` | Same purpose. Store as a Railway secret. |
 | `WEB_APP_URL` | same as Vercel `NEXT_PUBLIC_APP_URL` | Used for invitation links + CORS. |
 | `MAILNOW_API_KEY` | from your mailnowapi dashboard | Optional. Without it, invitation emails are logged to stdout instead of sent. |
-| `EMAIL_FROM` | `MyHR <noreply@yourdomain>` | Required when `MAILNOW_API_KEY` is set. |
+| `EMAIL_FROM` | `OurTeamManagement <noreply@yourdomain>` | Required when `MAILNOW_API_KEY` is set. |
 | `MAILNOW_API_URL` | `https://mailnowapi.com` (default) | Override if running the email service elsewhere. |
 | `PUBLIC_API_URL` | `https://<railway-api-domain>` | Used as `servers[0].url` in the OpenAPI spec so Swagger UI's "Try it out" works. |
 | `FIELD_ENCRYPTION_KEY` | `openssl rand -base64 32` | Reserved for the next PR (sensitive HR fields). |
@@ -62,7 +62,7 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 ## First-time setup
 
 1. **Deploy proark1/auth** (separate Railway project, see its README). Note its public URL.
-2. **Ask the auth team to register MyHR as an OAuth client** — they run `npm run create-client` with our branding (`--web-base-url=https://<your-web-domain>`, `--from-address=noreply@<your-domain>`, `--audience=<reserved-string>`). They hand back `AUTH_CLIENT_ID` + `AUTH_CLIENT_SECRET` (the secret is shown once at creation — store it immediately).
+2. **Ask the auth team to register OurTeamManagement as an OAuth client** — they run `npm run create-client` with our branding (`--web-base-url=https://<your-web-domain>`, `--from-address=noreply@<your-domain>`, `--audience=<reserved-string>`). They hand back `AUTH_CLIENT_ID` + `AUTH_CLIENT_SECRET` (the secret is shown once at creation — store it immediately).
 3. **Generate the master key**:
    ```bash
    echo "MASTER_API_KEY=mh_live_$(openssl rand -hex 32)"
@@ -74,16 +74,16 @@ Vercel project settings → **Root Directory: `apps/web`**, framework auto-detec
 
 ## Custom domain (optional)
 
-- Web app → `app.myhr.eu` (or your domain)
-  - Vercel → Settings → Domains → add `app.myhr.eu`, follow DNS instructions
+- Web app → `app.ourteammanagement.com` (or your domain)
+  - Vercel → Settings → Domains → add `app.ourteammanagement.com`, follow DNS instructions
   - Update `NEXT_PUBLIC_APP_URL` on Vercel
   - Update `WEB_APP_URL` on Railway
-- API → `api.myhr.eu`
+- API → `api.ourteammanagement.com`
   - Railway → API service → Settings → Networking → Custom Domain
   - Update `MYHR_API_URL` on Vercel
   - Update `PUBLIC_API_URL` on Railway
-- Marketing → `myhr.eu` (apex)
-  - Vercel → same project → add `myhr.eu`, follow DNS
+- Marketing → `ourteammanagement.com` (apex)
+  - Vercel → same project → add `ourteammanagement.com`, follow DNS
 
 After every domain change: redeploy both services so the env vars take effect.
 
@@ -94,7 +94,7 @@ After every domain change: redeploy both services so the env vars take effect.
 curl https://<api-domain>/healthz
 # → {"ok":true}
 
-# 2. 1tap path still works (master key + X-Tenant-Id is unaffected by the user auth path)
+# 2. Master path still works (master key + X-Tenant-Id is unaffected by the user auth path)
 curl https://<api-domain>/v1/orgs \
   -H "Authorization: Bearer $MASTER_API_KEY"
 

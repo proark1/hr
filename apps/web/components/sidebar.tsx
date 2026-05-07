@@ -58,7 +58,7 @@ export function Sidebar({
     <aside className="hidden md:flex md:w-64 md:flex-col bg-sidebar text-sidebar-foreground">
       <div className="px-4 py-5">
         <Link href="/overview" className="flex items-center gap-2 text-lg font-semibold">
-          MyHR
+          OurTeamManagement
         </Link>
       </div>
 

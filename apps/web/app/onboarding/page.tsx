@@ -27,7 +27,7 @@ export default async function OnboardingPage() {
     <div className="min-h-screen flex items-center justify-center p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome to MyHR</CardTitle>
+          <CardTitle>Welcome to OurTeamManagement</CardTitle>
           <CardDescription>Set up your first org to get started.</CardDescription>
         </CardHeader>
         <CardContent>

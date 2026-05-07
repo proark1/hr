@@ -29,7 +29,7 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
         tags: ["Orgs"],
         operationId: "listOrgs",
         summary: "List orgs (master only)",
-        description: "Lists all tenant orgs. Restricted to the master integrator (1tap).",
+        description: "Lists all tenant orgs. Restricted to the master integrator.",
         headers: masterReadHeaders,
         querystring: PageQuery,
         response: { 200: ListResponse, ...errorResponses(400, 401, 403, 429, 500) },
@@ -57,8 +57,8 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
   );
 
   // Create org — master OR end-user. When a user creates an org, they
-  // become its `owner` in the same transaction. 1tap-provisioned orgs
-  // get no membership rows.
+  // become its `owner` in the same transaction. Master-provisioned orgs
+  // get no membership rows (the operator manages access out-of-band).
   app.post(
     "",
     {
@@ -67,7 +67,7 @@ const orgRoutes: FastifyPluginAsyncZod = async (app) => {
         operationId: "createOrg",
         summary: "Create org",
         description:
-          "Provisions a new tenant org. Master callers (1tap) provision on behalf of a startup. End-user callers create their own org and become `owner`.",
+          "Provisions a new tenant org. Master callers provision on behalf of a tenant. End-user callers create their own org and become `owner`.",
         headers: orgWriteHeaders,
         body: OrgCreate,
         response: { 201: Org, ...errorResponses(400, 401, 403, 409, 429, 500) },

@@ -123,7 +123,7 @@ export async function buildServer() {
     openapi: {
       openapi: "3.0.3",
       info: {
-        title: "MyHR API",
+        title: "OurTeamManagement API",
         description: apiDescription,
         version: "0.0.1",
       },
@@ -147,7 +147,7 @@ export async function buildServer() {
         { name: "Company", description: "Singleton company profile (legal name, address, branding)." },
         { name: "Settings", description: "Singleton org-level settings (locale, timezone, fiscal year)." },
         { name: "Billing", description: "Read-only snapshot of plan and seat usage." },
-        { name: "SuperAdmin", description: "Cross-tenant ops for MyHR staff (`is_super_admin` users)." },
+        { name: "SuperAdmin", description: "Cross-tenant ops for OurTeamManagement staff (`is_super_admin` users)." },
         { name: "Health", description: "Liveness and service metadata." },
       ],
       components: {
@@ -156,7 +156,7 @@ export async function buildServer() {
             type: "http",
             scheme: "bearer",
             description:
-              "Master API key issued to 1tap (env `MASTER_API_KEY`). Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls.",
+              "Master API key (env `MASTER_API_KEY`) — the operator's bootstrap credential. Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls.",
           },
           tenantApiKey: {
             type: "http",

@@ -3,7 +3,7 @@
  * with concrete request bodies, path params, query strings, and response
  * payloads. One source of truth for `x-codeSamples` and JSON `examples`.
  *
- * Keep these realistic: 1tap engineers paste them into curl / the SDK and
+ * Keep these realistic: integrators paste them into curl / the SDK and
  * expect them to round-trip against a freshly migrated dev DB.
  */
 
@@ -76,9 +76,9 @@ export const FIXTURES: Record<string, OperationFixture> = {
   healthCheck: { response: { ok: true } },
   root: {
     response: {
-      name: "MyHR API",
+      name: "OurTeamManagement API",
       version: "0.0.1",
-      docs: "https://api.myhr.example/openapi",
+      docs: "https://api.ourteammanagement.com/openapi",
     },
   },
 
@@ -232,13 +232,13 @@ export const FIXTURES: Record<string, OperationFixture> = {
   // Webhook endpoints
   createWebhookEndpoint: {
     body: {
-      url: "https://api.1tap.ai/webhooks/myhr",
+      url: "https://api.example.com/webhooks/myhr",
       events: ["employee.created", "employee.updated"],
     },
     response: {
       id: SAMPLE_WEBHOOK_ENDPOINT_ID,
       orgId: SAMPLE_ORG_ID,
-      url: "https://api.1tap.ai/webhooks/myhr",
+      url: "https://api.example.com/webhooks/myhr",
       events: ["employee.created", "employee.updated"],
       isActive: true,
       createdAt: NOW,
@@ -252,7 +252,7 @@ export const FIXTURES: Record<string, OperationFixture> = {
         {
           id: SAMPLE_WEBHOOK_ENDPOINT_ID,
           orgId: SAMPLE_ORG_ID,
-          url: "https://api.1tap.ai/webhooks/myhr",
+          url: "https://api.example.com/webhooks/myhr",
           events: ["employee.created", "employee.updated"],
           isActive: true,
           createdAt: NOW,
@@ -266,7 +266,7 @@ export const FIXTURES: Record<string, OperationFixture> = {
     response: {
       id: SAMPLE_WEBHOOK_ENDPOINT_ID,
       orgId: SAMPLE_ORG_ID,
-      url: "https://api.1tap.ai/webhooks/myhr",
+      url: "https://api.example.com/webhooks/myhr",
       events: ["employee.created", "employee.updated"],
       isActive: true,
       createdAt: NOW,
@@ -279,7 +279,7 @@ export const FIXTURES: Record<string, OperationFixture> = {
     response: {
       id: SAMPLE_WEBHOOK_ENDPOINT_ID,
       orgId: SAMPLE_ORG_ID,
-      url: "https://api.1tap.ai/webhooks/myhr",
+      url: "https://api.example.com/webhooks/myhr",
       events: ["employee.created", "employee.updated", "employee.deleted"],
       isActive: true,
       createdAt: NOW,
@@ -291,7 +291,7 @@ export const FIXTURES: Record<string, OperationFixture> = {
     response: {
       id: SAMPLE_WEBHOOK_ENDPOINT_ID,
       orgId: SAMPLE_ORG_ID,
-      url: "https://api.1tap.ai/webhooks/myhr",
+      url: "https://api.example.com/webhooks/myhr",
       events: ["employee.created", "employee.updated"],
       isActive: true,
       createdAt: NOW,

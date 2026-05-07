@@ -5,7 +5,7 @@ import { getActiveOrgIdCookie } from "./active-org";
 const apiUrl = process.env.MYHR_API_URL ?? "http://localhost:8080";
 
 /**
- * Returns a per-request MyHR SDK client wired with the caller's auth-service
+ * Returns a per-request OurTeamManagement SDK client wired with the caller's auth-service
  * access token + active org. Always called in server components / server
  * actions / route handlers — never the browser. Returns null when there is
  * no session (the (app) layout redirects in that case before getting here).

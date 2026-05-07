@@ -40,7 +40,7 @@ declare module "fastify" {
     /**
      * For user callers: requires `isSuperAdmin = true`. Master and
      * tenant_key callers are rejected — superadmin endpoints are for
-     * MyHR ops humans only. Master has its own master-scoped endpoints.
+     * OurTeamManagement ops humans only. Master has its own master-scoped endpoints.
      */
     requireSuperAdmin?: true;
     /** @deprecated alias for `allowedCallers: ["master"]`. */

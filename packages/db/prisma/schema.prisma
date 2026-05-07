@@ -1,4 +1,4 @@
-// MyHR database schema.
+// OurTeamManagement database schema.
 //
 // Multi-tenant: every personal-data table carries org_id and is protected by
 // Postgres Row-Level Security. Application connects as a non-owner role; the
@@ -43,9 +43,10 @@ model Org {
   name                 String
   region               OrgRegion   @default(eu)
   status               OrgStatus   @default(active)
-  // Reserved for the Stripe self-serve PR. 1tap-provisioned orgs get
-  // billing_mode='partner' (no per-seat metering); UI signups default to
-  // 'subscription'. 'invoice' is for old-school manual invoicing.
+  // Reserved for the Stripe self-serve PR. Master-provisioned orgs get
+  // billing_mode='partner' (no per-seat metering — the operator handles
+  // billing on their side); UI signups default to 'subscription'.
+  // 'invoice' is for old-school manual invoicing.
   billingMode          BillingMode @default(subscription) @map("billing_mode")
   stripeCustomerId     String?     @map("stripe_customer_id")
   stripeSubscriptionId String?     @map("stripe_subscription_id")
@@ -110,7 +111,7 @@ enum EmployeeCountry {
 model Employee {
   id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orgId         String          @map("org_id") @db.Uuid
-  externalId    String?         @map("external_id") // 1tap's stable ID for this person
+  externalId    String?         @map("external_id") // The integrating system's stable ID for this person
   email         String          @db.Citext
   firstName     String          @map("first_name")
   lastName      String          @map("last_name")
@@ -153,7 +154,7 @@ model AuditEvent {
   id         BigInt   @id @default(autoincrement())
   orgId      String?  @map("org_id") @db.Uuid
   actorType  String   @map("actor_type") // "master" | "tenant" | "system"
-  actorId    String?  @map("actor_id")   // 1tap user id from X-Actor header
+  actorId    String?  @map("actor_id")   // user id from X-Actor header (master callers) or session (user callers)
   actorEmail String?  @map("actor_email")
   action     String   // "employee.created", "employee.read", ...
   resource   String?  // "employee:<uuid>"

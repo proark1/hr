@@ -78,7 +78,7 @@ function qs(obj?: Record<string, string | number | undefined>): string {
 }
 
 /**
- * Build a typed MyHR client.
+ * Build a typed OurTeamManagement client.
  *
  * Auth is pluggable: pass a `getToken` that returns either a master/tenant
  * `mh_live_…` key (machine callers) or an auth-service access token (JWT)
@@ -198,7 +198,7 @@ export function createClient(config: ClientConfig) {
         ),
     },
 
-    /** MyHR ops humans (`is_super_admin = true`). */
+    /** OurTeamManagement ops humans (`is_super_admin = true`). */
     superadmin: {
       listOrgs: (q?: { cursor?: string; limit?: number }) =>
         request<Page<Org>>("GET", `/v1/superadmin/orgs${qs(q)}`),

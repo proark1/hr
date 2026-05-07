@@ -1,33 +1,42 @@
-# MyHR
+# OurTeamManagement
 
-API-first HR service for [1tap.ai](https://1tap.ai) **and** direct B2B customers.
-1tap drives many startup tenants via a single master API key with their own UI.
-Direct customers sign up at `app.myhr.eu`, manage their own org, employees, and
-team via our dashboard. Both surfaces hit the same `/v1/*` API and share one
-Postgres with row-level security.
+An API-first, multi-tenant HR service. Any product or backend can integrate
+with it via REST, an MCP server, or webhooks; tenants can also use the
+bundled Next.js dashboard directly.
 
 - **Markets**: US + DE (GDPR-compliant by default; Railway EU region)
-- **Surfaces**: REST + MCP server + webhooks (planned) + Next.js web app
-- **Auth**:
-  - 1tap: single master API key (`Authorization: Bearer mh_live_…` + `X-Tenant-Id`)
-  - Direct customers: external [proark1/auth](https://github.com/proark1/auth)
-    service (email/password + TOTP MFA, JWT access tokens). The web app
-    talks to the auth service server-side; the API verifies the access
-    token against the auth service's JWKS and forwards no secrets.
+- **Surfaces**: REST + MCP server + outbound webhooks + Next.js web app
+- **Auth (three caller types)**:
+  - **Master API key** — the operator's bootstrap credential. One key per
+    deployment (env `MASTER_API_KEY`); cross-tenant; sent as
+    `Authorization: Bearer mh_live_…` plus `X-Tenant-Id`.
+  - **Tenant API key** — minted by tenants from the dashboard for their own
+    integrations; org-scoped (no `X-Tenant-Id` needed).
+  - **User session** — JWTs issued by the external
+    [proark1/auth](https://github.com/proark1/auth) service for end users
+    of the dashboard.
 - **Notifications**: invitation emails go via [proark1/emailservice](https://github.com/proark1/emailservice)
   (mailnowapi.com) — toggle by setting `MAILNOW_API_KEY`
 
-## Features (v1 scope)
+## Features
 
-1. Employees ✅
-2. Members + invitations ✅
-3. API keys (mintable from the dashboard) ✅
-4. Org chart *(next PR)*
-5. Time off / vacation with US + DE presets *(next PR)*
-6. Documents with expiry reminders *(next PR)*
-7. Performance reviews & 1:1s *(next PR)*
-8. Compensation history *(next PR)*
-9. Roles, permissions, audit log ✅
+| Feature                                  | Status |
+| ---------------------------------------- | ------ |
+| Employees                                | ✅     |
+| Members + invitations                    | ✅     |
+| API keys (mintable from the dashboard)   | ✅     |
+| Org chart (auto-derived from managers)   | ✅     |
+| Time off (request + approve/reject flow) | ✅     |
+| Documents (metadata, externally hosted)  | ✅     |
+| Performance reviews (draft → published)  | ✅     |
+| Webhooks (HMAC-signed, retried)          | ✅     |
+| Company profile + workspace settings     | ✅     |
+| Billing snapshot (read-only)             | ✅     |
+| Roles, permissions, audit log            | ✅     |
+| Document blob hosting (Cloudflare R2)    | planned |
+| Stripe self-serve subscriptions          | planned |
+| Compensation history                     | planned |
+| Field-level encryption for sensitive IDs | planned |
 
 ## Repo layout
 
@@ -47,9 +56,7 @@ packages/
 - Node 22 + TypeScript + Fastify 5 + Zod (API)
 - Next.js 15 + Tailwind 4 + shadcn/ui-style primitives (web); auth delegated to [proark1/auth](https://github.com/proark1/auth)
 - Postgres (Railway EU) + Prisma + Row-Level Security
-- Cloudflare R2 (EU) for documents *(next PR)*
-- Stripe Invoicing for monthly billing *(next PR)*
-- pg-boss for background jobs *(next PR)*
+- pg-boss for background jobs *(planned)*
 - mailnowapi for transactional email
 
 
@@ -65,16 +72,16 @@ SELECT set_config('app.current_org_id', '<uuid>', true);
 ```
 
 Policies enforce that tenant callers only see rows for their own org. Master
-calls (1tap's backend) bypass via `app.is_master`. RLS is `FORCE`d, so even
-if the app accidentally connects as a table owner it can't escape the tenant.
+calls bypass via `app.is_master`. RLS is `FORCE`d, so even if the app
+accidentally connects as a table owner it can't escape the tenant.
 
 ## Auth
 
 ```
-Authorization: Bearer mh_live_…       master API key (1tap)
-X-Tenant-Id:   <org uuid>              required on tenant-scoped routes
+Authorization: Bearer mh_live_…       master or tenant API key
+X-Tenant-Id:   <org uuid>              required for master callers on tenant-scoped routes
 X-Actor:       {"id":"...","email":"...","name":"..."}   optional, audit attribution
-Idempotency-Key: <uuid>                required on writes (1tap retries safely)
+Idempotency-Key: <uuid>                required on writes (safe to retry)
 ```
 
 ## Local development
@@ -108,17 +115,17 @@ pnpm mcp:dev
 ## Smoke test
 
 ```bash
-# 1tap creates a startup
+# Provision a tenant org with the master key
 curl -X POST http://localhost:8080/v1/orgs \
   -H "Authorization: Bearer $MASTER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"Acme Inc","region":"eu"}'
 
-# Add an employee inside that startup
+# Add an employee inside that org
 curl -X POST http://localhost:8080/v1/employees \
   -H "Authorization: Bearer $MASTER_API_KEY" \
   -H "X-Tenant-Id: <org-uuid>" \
-  -H "X-Actor: {\"email\":\"founder@1tap.ai\"}" \
+  -H "X-Actor: {\"email\":\"founder@example.com\"}" \
   -H "Idempotency-Key: $(uuidgen)" \
   -H "Content-Type: application/json" \
   -d '{"email":"alex@acme.com","firstName":"Alex","lastName":"Doe","country":"de","startDate":"2026-06-01"}'
@@ -140,9 +147,10 @@ curl -X POST http://localhost:8080/v1/employees \
 - **Per-operation security**: each operation declares which credential
   types it accepts (`masterApiKey`, `tenantApiKey`, `userSession`),
   derived from the same `allowedCallers` config the runtime enforces.
-- **Webhooks**: forward-looking event contract under the `Webhooks` section
-  of the spec — `employee.created`, `employee.updated`, `employee.deleted`,
-  `document.expiring`. Delivery and HMAC signing land in a follow-up.
+- **Webhooks**: outbound events documented under the `Webhooks` section of
+  the spec — `employee.created`, `employee.updated`, `employee.deleted`,
+  `document.expiring`. Each delivery is HMAC-SHA256 signed and retried with
+  exponential backoff.
 - **Typed SDK**: [`@myhr/sdk`](packages/sdk) exposes a method per
   operationId. CI runs `openapi:sdk-coverage` to fail the build if the SDK
   drifts — both methods missing for spec operations and SDK URLs that don't
@@ -167,8 +175,8 @@ open apps/api/dist-docs/index.html
   `prisma migrate deploy` as the `preDeployCommand` from `railway.json`.
 - **Vercel** hosts `apps/web` (Next.js). The Vercel project's Root Directory
   is `apps/web`; preview deployments fire on every PR.
-- The MCP server runs locally inside 1tap's environment per agent session, or
-  alongside the API if hosted execution is desired later.
+- The MCP server runs locally inside the integrating product's environment
+  per agent session, or alongside the API if hosted execution is desired later.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the full env-var matrix, custom-domain
 setup, and verification steps.
@@ -179,6 +187,6 @@ setup, and verification steps.
 - Right-to-access export at `GET /v1/employees/{id}/export` (Art. 15).
 - Audit log of all reads and writes of personal data (Art. 30).
 - Field-level encryption for sensitive identifiers (SSN, IBAN, Steuer-ID) —
-  enabled in the next PR alongside contracts.
-- Data residency: Postgres + R2 in EU; tenants flagged `region=us` are still
+  planned alongside contract storage.
+- Data residency: Postgres in EU; tenants flagged `region=us` are still
   hosted in EU in v1 with an explicit DPA term.

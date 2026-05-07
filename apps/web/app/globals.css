@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * MyHR theme tokens. Single source of truth for the cream main / dark navy
+ * OurTeamManagement theme tokens. Single source of truth for the cream main / dark navy
  * sidebar / blue gradient stat-tile look. Tailwind 4's @theme directive
  * lets us use these as utility classes (e.g. bg-background, text-sidebar)
  * without a JS tailwind.config.
