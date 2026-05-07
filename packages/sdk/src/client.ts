@@ -22,6 +22,24 @@ import type {
   WebhookEndpointWithSecret,
   WebhookDelivery,
   WebhookDeliveryListQuery,
+  TimeOffRequest,
+  TimeOffRequestCreate,
+  TimeOffDecision,
+  TimeOffListQuery,
+  Document,
+  DocumentCreate,
+  DocumentUpdate,
+  DocumentListQuery,
+  PerformanceReview,
+  PerformanceReviewCreate,
+  PerformanceReviewUpdate,
+  PerformanceReviewListQuery,
+  CompanyProfile,
+  CompanyProfileUpdate,
+  OrgSettings,
+  OrgSettingsUpdate,
+  BillingSnapshot,
+  OrgChart,
 } from "@myhr/types";
 import { MyHRError, type ApiErrorBody } from "./errors.js";
 
@@ -212,6 +230,81 @@ export function createClient(config: ClientConfig) {
         ),
       delete: (id: string, ctx?: CallerContext) =>
         request<void>("DELETE", `/v1/webhook-endpoints/${id}`, { ctx }),
+    },
+
+    /** Time-off requests. */
+    timeOff: {
+      list: (q?: TimeOffListQuery, ctx?: CallerContext) =>
+        request<Page<TimeOffRequest>>(
+          "GET",
+          `/v1/time-off${qs(q as Record<string, string | number | undefined>)}`,
+          { ctx },
+        ),
+      create: (body: TimeOffRequestCreate, ctx?: CallerContext) =>
+        request<TimeOffRequest>("POST", "/v1/time-off", { body, ctx }),
+      get: (id: string, ctx?: CallerContext) =>
+        request<TimeOffRequest>("GET", `/v1/time-off/${id}`, { ctx }),
+      decide: (id: string, body: TimeOffDecision, ctx?: CallerContext) =>
+        request<TimeOffRequest>("POST", `/v1/time-off/${id}/decision`, { body, ctx }),
+    },
+
+    /** Documents (metadata only — fileUrl points at externally-hosted blobs). */
+    documents: {
+      list: (q?: DocumentListQuery, ctx?: CallerContext) =>
+        request<Page<Document>>(
+          "GET",
+          `/v1/documents${qs(q as Record<string, string | number | undefined>)}`,
+          { ctx },
+        ),
+      create: (body: DocumentCreate, ctx?: CallerContext) =>
+        request<Document>("POST", "/v1/documents", { body, ctx }),
+      get: (id: string, ctx?: CallerContext) =>
+        request<Document>("GET", `/v1/documents/${id}`, { ctx }),
+      update: (id: string, body: DocumentUpdate, ctx?: CallerContext) =>
+        request<Document>("PATCH", `/v1/documents/${id}`, { body, ctx }),
+      delete: (id: string, ctx?: CallerContext) =>
+        request<{ id: string; deletedAt: string }>("DELETE", `/v1/documents/${id}`, { ctx }),
+    },
+
+    /** Performance reviews. */
+    reviews: {
+      list: (q?: PerformanceReviewListQuery, ctx?: CallerContext) =>
+        request<Page<PerformanceReview>>(
+          "GET",
+          `/v1/reviews${qs(q as Record<string, string | number | undefined>)}`,
+          { ctx },
+        ),
+      create: (body: PerformanceReviewCreate, ctx?: CallerContext) =>
+        request<PerformanceReview>("POST", "/v1/reviews", { body, ctx }),
+      get: (id: string, ctx?: CallerContext) =>
+        request<PerformanceReview>("GET", `/v1/reviews/${id}`, { ctx }),
+      update: (id: string, body: PerformanceReviewUpdate, ctx?: CallerContext) =>
+        request<PerformanceReview>("PATCH", `/v1/reviews/${id}`, { body, ctx }),
+    },
+
+    /** Org chart (auto-derived from manager relationships). */
+    orgChart: {
+      get: (ctx?: CallerContext) => request<OrgChart>("GET", "/v1/org-chart", { ctx }),
+    },
+
+    /** Company profile (singleton per tenant). */
+    company: {
+      get: (ctx?: CallerContext) => request<CompanyProfile>("GET", "/v1/company", { ctx }),
+      update: (body: CompanyProfileUpdate, ctx?: CallerContext) =>
+        request<CompanyProfile>("PUT", "/v1/company", { body, ctx }),
+    },
+
+    /** Org settings (singleton per tenant). */
+    settings: {
+      get: (ctx?: CallerContext) => request<OrgSettings>("GET", "/v1/settings", { ctx }),
+      update: (body: OrgSettingsUpdate, ctx?: CallerContext) =>
+        request<OrgSettings>("PUT", "/v1/settings", { body, ctx }),
+    },
+
+    /** Billing (read-only snapshot). */
+    billing: {
+      get: (ctx?: CallerContext) =>
+        request<BillingSnapshot>("GET", "/v1/billing", { ctx }),
     },
 
     /** Webhook delivery audit + replay. */
