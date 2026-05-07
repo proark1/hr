@@ -13,6 +13,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Migration `20260507130000_hr_app_type_grants`** — defense-in-depth
+  follow-up to the previous migration: explicitly `GRANT USAGE ON ALL
+  TYPES` (and `ALTER DEFAULT PRIVILEGES ... ON TYPES`) to `hr_app` for
+  both `public` and `pgboss` schemas. Today these work via the implicit
+  `USAGE` Postgres grants to `PUBLIC` for every `CREATE TYPE`; this
+  migration ensures the app keeps working even if the database is later
+  hardened with `REVOKE USAGE ... FROM PUBLIC`.
 - **Migration `20260507120000_hr_app_role_grants`** — codifies the GRANTs
   the application role (`hr_app`) needs at runtime so a fresh deploy
   doesn't silently end up running as a superuser (which bypasses every
