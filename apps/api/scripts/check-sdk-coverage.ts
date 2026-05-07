@@ -68,6 +68,32 @@ const SDK_METHODS: Record<string, string> = {
   listWebhookDeliveries: "webhookDeliveries.list",
   getWebhookDelivery: "webhookDeliveries.get",
   redeliverWebhookDelivery: "webhookDeliveries.redeliver",
+
+  listTimeOffRequests: "timeOff.list",
+  createTimeOffRequest: "timeOff.create",
+  getTimeOffRequest: "timeOff.get",
+  decideTimeOffRequest: "timeOff.decide",
+
+  listDocuments: "documents.list",
+  createDocument: "documents.create",
+  getDocument: "documents.get",
+  updateDocument: "documents.update",
+  deleteDocument: "documents.delete",
+
+  listReviews: "reviews.list",
+  createReview: "reviews.create",
+  getReview: "reviews.get",
+  updateReview: "reviews.update",
+
+  getOrgChart: "orgChart.get",
+
+  getCompanyProfile: "company.get",
+  updateCompanyProfile: "company.update",
+
+  getOrgSettings: "settings.get",
+  updateOrgSettings: "settings.update",
+
+  getBillingSnapshot: "billing.get",
 };
 
 function getOperationIds(spec: Spec): string[] {
