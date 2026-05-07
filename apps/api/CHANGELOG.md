@@ -13,6 +13,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Partner caller type — multi-master integrators.** A new auth tier sits
+  between the root master (env `MASTER_API_KEY`) and tenant keys: a
+  `Partner` represents an external SaaS integrator (e.g. OneTap.ai) that
+  provisions HR orgs on behalf of their own customers. Each partner has
+  one or more named, individually revokable API keys (`scope=partner`)
+  and is RLS-isolated from every other partner — `GET /v1/orgs` returns
+  only orgs the calling partner provisioned, and cross-partner reads
+  return `404`. Partners are created and rotated by the operator only
+  (root-master-gated routes); the env-var key remains the break-glass
+  credential.
+  - Operator-only routes: `POST/GET/GET-by-id/PATCH /v1/partners`,
+    `POST/GET/DELETE /v1/partners/{id}/keys`. `PATCH` with
+    `{"status":"suspended"}` blocks every key for that partner at auth
+    time without revoking individual keys.
+  - `/v1/orgs` `list` / `get` / `update` now accept partner callers (RLS
+    filters to their own orgs); `create` accepts partners and tags new
+    orgs with `partner_id`.
+  - `Org` response gains `partnerId: string | nullable` — non-null when
+    the org was provisioned by a partner, null for root-master- or
+    user-provisioned orgs.
+  - `X-Actor` header is honored for partner callers (audit attribution),
+    same as for the root master.
+  - Audit events record `partner_id` and `partner_key_id` in metadata
+    automatically for partner callers.
+  - SDK gains `partners.*` and `partners.keys.*` namespaces.
+  - OpenAPI gains a `partnerApiKey` security scheme and a `Partners` tag.
+  - See [`UPGRADING.md`](../../UPGRADING.md) for the migration guide.
 - **Webhook delivery (live).** `POST /v1/webhook-endpoints` registers a URL
   and returns a signing secret once; `GET`/`PATCH`/`DELETE` manage it;
   `POST /v1/webhook-endpoints/{id}/rotate-secret` mints a fresh secret.
@@ -37,6 +64,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   codes, and the versioning policy.
 - Hosted Redoc API reference at <https://proark1.github.io/hr/>, deployed
   from `main` on every push.
+
+### Changed
+- **API key prefix length: 12 → 24 chars.** The `prefix` column in
+  `api_keys` (used as the lookup key for both tenant and partner API
+  keys) now stores 24 characters (the `mh_live_` tag plus 16 random hex
+  chars) instead of 12. Old prefix length had only 16 bits of randomness
+  and would have hit the `prefix UNIQUE` constraint after a few hundred
+  keys; 24 chars gives 64 bits, safe at any realistic scale.
+  - **Backwards-incompatible for any key minted before this release.**
+    Old keys still authenticate cryptographically, but the auth lookup
+    slices 24 chars from the incoming token and won't match the 12-char
+    stored prefix. Affected callers must re-mint and rotate. Server-side
+    migration is impossible (we never store plaintext, so old prefixes
+    can't be lengthened).
+  - Newly-minted keys (after this release) use the 24-char prefix
+    automatically; no client code changes.
+  - See [`UPGRADING.md`](../../UPGRADING.md) Scenario 1 for tenant-side
+    steps.
 
 ## [0.0.1] — 2026-05-01
 
