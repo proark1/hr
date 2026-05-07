@@ -1,15 +1,16 @@
 import fp from "fastify-plugin";
-import type { MembershipRole } from "@myhr/db";
+import { withTenant, type MembershipRole } from "@myhr/db";
 import { Errors } from "../errors.js";
 import { reqPath } from "../lib/path.js";
 
-type CallerType = "master" | "tenant_key" | "user";
+type CallerType = "master" | "partner" | "tenant_key" | "user";
 
 declare module "fastify" {
   interface FastifyRequest {
     /**
      * Tenant org id for this request. Resolution depends on caller type:
      *   master     → X-Tenant-Id header
+     *   partner    → X-Tenant-Id header, validated to belong to the partner
      *   tenant_key → caller.orgId (key is org-scoped)
      *   user       → X-Org-Id header, validated against memberships
      */
@@ -49,7 +50,7 @@ declare module "fastify" {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DEFAULT_ALLOWED: ReadonlyArray<CallerType> = ["master", "tenant_key", "user"];
+const DEFAULT_ALLOWED: ReadonlyArray<CallerType> = ["master", "partner", "tenant_key", "user"];
 
 export default fp(async (app) => {
   app.addHook("preHandler", async (req) => {
@@ -76,6 +77,32 @@ export default fp(async (app) => {
       tenantId = typeof h === "string" ? h : null;
       if (tenantId && !UUID_RE.test(tenantId)) {
         throw Errors.badRequest("X-Tenant-Id must be a UUID");
+      }
+    } else if (caller.type === "partner") {
+      const h = req.headers["x-tenant-id"];
+      tenantId = typeof h === "string" ? h : null;
+      if (tenantId && !UUID_RE.test(tenantId)) {
+        throw Errors.badRequest("X-Tenant-Id must be a UUID");
+      }
+      // Defense in depth: validate partner ownership at the app layer
+      // before downstream code drops into single-org mode (where RLS
+      // checks org_id only). RLS on `orgs` would also reject this, but
+      // catching it here gives a clean 404 instead of opaque downstream
+      // failures, and prevents leaking org existence to non-owning
+      // partners (404 looks identical to "no such org").
+      if (tenantId) {
+        const orgId = tenantId;
+        const partnerId = caller.partnerId;
+        const owned = await withTenant(
+          app.prisma,
+          { orgId: null, isMaster: true },
+          (tx) =>
+            tx.org.findFirst({
+              where: { id: orgId, partnerId, deletedAt: null },
+              select: { id: true },
+            }),
+        );
+        if (!owned) throw Errors.notFound();
       }
     } else if (caller.type === "tenant_key") {
       tenantId = caller.orgId;

@@ -6,10 +6,17 @@ bundled Next.js dashboard directly.
 
 - **Markets**: US + DE (GDPR-compliant by default; Railway EU region)
 - **Surfaces**: REST + MCP server + outbound webhooks + Next.js web app
-- **Auth (three caller types)**:
-  - **Master API key** — the operator's bootstrap credential. One key per
-    deployment (env `MASTER_API_KEY`); cross-tenant; sent as
-    `Authorization: Bearer mh_live_…` plus `X-Tenant-Id`.
+- **Auth (four caller types)**:
+  - **Root master key** — the operator's bootstrap credential. One key per
+    deployment (env `MASTER_API_KEY`); cross-everything; the only credential
+    that can create or revoke partners. Sent as `Authorization: Bearer
+    mh_live_…` plus `X-Tenant-Id` for tenant-scoped calls.
+  - **Partner API key** — DB-backed credential for an external SaaS
+    integrator (e.g. OneTap.ai) that provisions HR orgs on behalf of their
+    own customers. Cross-tenant within the orgs the owning partner
+    provisioned, and **no further** — RLS-isolates each partner from every
+    other partner. Multiple partners can coexist, each with independently
+    revokable keys. Created and rotated by the operator.
   - **Tenant API key** — minted by tenants from the dashboard for their own
     integrations; org-scoped (no `X-Tenant-Id` needed).
   - **User session** — JWTs issued by the external
@@ -78,11 +85,28 @@ accidentally connects as a table owner it can't escape the tenant.
 ## Auth
 
 ```
-Authorization: Bearer mh_live_…       master or tenant API key
-X-Tenant-Id:   <org uuid>              required for master callers on tenant-scoped routes
-X-Actor:       {"id":"...","email":"...","name":"..."}   optional, audit attribution
+Authorization: Bearer mh_live_…       root master, partner, or tenant API key
+X-Tenant-Id:   <org uuid>              required for root master + partner callers on tenant-scoped routes
+X-Actor:       {"id":"...","email":"...","name":"..."}   optional, audit attribution (root master + partner)
 Idempotency-Key: <uuid>                required on writes (safe to retry)
 ```
+
+### Multi-partner integrators
+
+If you're building a service on top of OurTeamManagement and your own customers each
+get their own HR org (the OneTap.ai pattern), you want a **partner key**
+rather than the root master. Each partner key:
+
+- Is created by the operator: `POST /v1/partners` then `POST /v1/partners/{id}/keys`
+- Provisions orgs that are tagged with the partner id (`POST /v1/orgs`)
+- Sees only those orgs (`GET /v1/orgs` returns just yours; cross-partner
+  reads return 404 — RLS-enforced)
+- Can be revoked individually (`DELETE /v1/partners/{id}/keys/{keyId}`)
+  without affecting other partners
+- Rotates without coordinating with other integrators
+
+The root master key remains the operator's break-glass credential and is
+never given to integrators.
 
 ## Local development
 

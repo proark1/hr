@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ApiKeyScope = z.enum(["master", "tenant"]);
+export const ApiKeyScope = z.enum(["master", "partner", "tenant"]);
 export type ApiKeyScope = z.infer<typeof ApiKeyScope>;
 
 /** Stored API key — never includes the plaintext secret. */

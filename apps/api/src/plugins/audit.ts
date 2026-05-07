@@ -39,6 +39,15 @@ export default fp(async (app) => {
     const actorType = req.caller?.type ?? "anonymous";
     const isFailure = reply.statusCode >= 500;
 
+    // For partner callers, attach partner_id to every event so audit
+    // queries can filter by partner ("show me everything OneTap did").
+    // Route handlers can still add their own auditMetadata; this merges
+    // before, so handlers can override if they need to.
+    const partnerMeta =
+      req.caller?.type === "partner"
+        ? { partnerId: req.caller.partnerId, partnerKeyId: req.caller.keyId }
+        : {};
+
     const action =
       req.auditAction ?? `${req.method.toLowerCase()} ${req.routeOptions?.url ?? path}`;
 
@@ -61,6 +70,7 @@ export default fp(async (app) => {
                 method: req.method,
                 path,
                 status: reply.statusCode,
+                ...partnerMeta,
                 ...(isFailure ? { failure: true } : {}),
                 ...(req.auditMetadata ?? {}),
               },

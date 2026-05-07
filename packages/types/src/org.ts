@@ -8,6 +8,8 @@ export const Org = z.object({
   name: z.string(),
   region: OrgRegion,
   status: OrgStatus,
+  /** Set when the org was provisioned by a partner integrator; null otherwise. */
+  partnerId: z.string().uuid().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

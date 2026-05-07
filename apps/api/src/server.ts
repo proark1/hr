@@ -37,6 +37,7 @@ import webhooksPlugin from "./plugins/webhooks.js";
 
 import healthRoutes from "./routes/health.js";
 import orgRoutes from "./routes/orgs.js";
+import partnerRoutes from "./routes/partners.js";
 import employeeRoutes from "./routes/employees.js";
 import meRoutes from "./routes/me.js";
 import memberRoutes from "./routes/members.js";
@@ -135,7 +136,8 @@ export async function buildServer() {
       ],
       tags: [
         { name: "Me", description: "The currently authenticated end user." },
-        { name: "Orgs", description: "Tenant orgs. Master + end-user creation; master read." },
+        { name: "Orgs", description: "Tenant orgs. Root master, partner, and end-user creation; root master + partner read (partners see only their own orgs)." },
+        { name: "Partners", description: "External SaaS integrators. Each partner provisions HR orgs for their own customers and is RLS-isolated from every other partner. Operator-only management." },
         { name: "Members", description: "Per-org memberships and roles." },
         { name: "Invitations", description: "Invite-by-email flow for adding members." },
         { name: "ApiKeys", description: "Tenant-scoped API keys minted from the dashboard." },
@@ -156,7 +158,13 @@ export async function buildServer() {
             type: "http",
             scheme: "bearer",
             description:
-              "Master API key (env `MASTER_API_KEY`) — the operator's bootstrap credential. Sent as `Authorization: Bearer mh_live_…`. Master callers may operate across all tenants and must send `X-Tenant-Id` to scope tenant-specific calls.",
+              "Root master API key (env `MASTER_API_KEY`) — the operator's bootstrap credential. Sent as `Authorization: Bearer mh_live_…`. Cross-everything; only credential able to create or revoke partners. Master callers must send `X-Tenant-Id` to scope tenant-specific calls.",
+          },
+          partnerApiKey: {
+            type: "http",
+            scheme: "bearer",
+            description:
+              "Partner API key minted by the operator. Sent as `Authorization: Bearer mh_live_…`. Authenticates as a Partner; cross-tenant within the orgs the owning Partner provisioned (RLS-isolated from every other Partner). Send `X-Tenant-Id` to scope tenant-specific calls; `X-Actor` honored for audit attribution.",
           },
           tenantApiKey: {
             type: "http",
@@ -172,9 +180,14 @@ export async function buildServer() {
           },
         },
       },
-      // Default security: any of the three schemes is acceptable. Routes
+      // Default security: any of the four schemes is acceptable. Routes
       // narrow this via the `onRoute` hook below based on `config.allowedCallers`.
-      security: [{ masterApiKey: [] }, { tenantApiKey: [] }, { userSession: [] }],
+      security: [
+        { masterApiKey: [] },
+        { partnerApiKey: [] },
+        { tenantApiKey: [] },
+        { userSession: [] },
+      ],
     },
     transform: jsonSchemaTransform,
   });
@@ -183,13 +196,14 @@ export async function buildServer() {
   // The auth/tenant plugins are the source of truth at runtime; this hook
   // mirrors that into the spec so integrators see exactly which credential
   // types each endpoint accepts.
-  type CallerType = "master" | "tenant_key" | "user";
+  type CallerType = "master" | "partner" | "tenant_key" | "user";
   const SCHEME_BY_CALLER: Record<CallerType, Record<string, string[]>> = {
     master: { masterApiKey: [] },
+    partner: { partnerApiKey: [] },
     tenant_key: { tenantApiKey: [] },
     user: { userSession: [] },
   };
-  const ALL_CALLERS: ReadonlyArray<CallerType> = ["master", "tenant_key", "user"];
+  const ALL_CALLERS: ReadonlyArray<CallerType> = ["master", "partner", "tenant_key", "user"];
   app.addHook("onRoute", (route) => {
     if (!route.schema) return;
     if (route.url.startsWith("/openapi") || route.url === "/healthz" || route.url === "/") {
@@ -223,6 +237,7 @@ export async function buildServer() {
   await app.register(healthRoutes);
   await app.register(meRoutes, { prefix: "/v1/me" });
   await app.register(orgRoutes, { prefix: "/v1/orgs" });
+  await app.register(partnerRoutes, { prefix: "/v1/partners" });
   await app.register(memberRoutes, { prefix: "/v1/members" });
   await app.register(invitationRoutes, { prefix: "/v1/invitations" });
   await app.register(invitationAcceptRoutes, { prefix: "/v1/invitations" });

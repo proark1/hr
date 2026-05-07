@@ -84,6 +84,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
               name: m.org.name,
               region: m.org.region,
               status: m.org.status,
+              partnerId: m.org.partnerId,
               createdAt: m.org.createdAt.toISOString(),
               updatedAt: m.org.updatedAt.toISOString(),
             },

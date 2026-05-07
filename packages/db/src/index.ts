@@ -17,18 +17,28 @@ export function getPrisma(): PrismaClient {
  * Run `fn` inside a transaction with the tenant context bound to the Postgres
  * session. RLS policies use these settings to scope every read and write.
  *
- * Master callers set `isMaster = true` and bypass tenant filtering (used for
- * cross-tenant operations like provisioning a new org). Tenant callers MUST
- * pass `orgId` so a leaked or buggy query cannot escape the tenant.
+ * Caller modes:
+ *   - Root master: `isMaster = true`. Cross-everything. Used for cross-tenant
+ *     ops like creating partners or listing every org.
+ *   - Partner:     `isMaster = false`, `partnerId` set, `orgId` optional. RLS
+ *     filters orgs (and via tenant resolution, downstream tables) to those
+ *     owned by the partner. Set `orgId` when operating on a single org you
+ *     have already validated ownership of (defense in depth).
+ *   - Tenant key:  `isMaster = false`, `orgId` set. Standard single-tenant.
+ *   - User:        `isMaster = false`, `orgId` set, `userId` set so RLS can
+ *     match the org_memberships self-policy across orgs.
  *
- * `userId` is optional and only meaningful for end-user (web app) callers;
- * the org_memberships RLS self-policy uses it so a user can list their
- * memberships across orgs without an org context selected. Master and
- * tenant-key callers leave it null.
+ * Tenant callers MUST pass `orgId` so a leaked or buggy query cannot escape
+ * the tenant.
  */
 export async function withTenant<T>(
   prisma: PrismaClient,
-  ctx: { orgId: string | null; isMaster: boolean; userId?: string | null },
+  ctx: {
+    orgId: string | null;
+    isMaster: boolean;
+    userId?: string | null;
+    partnerId?: string | null;
+  },
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   return prisma.$transaction(async (tx) => {
@@ -44,6 +54,10 @@ export async function withTenant<T>(
     await tx.$executeRawUnsafe(
       `SELECT set_config('app.current_user_id', $1, true)`,
       ctx.userId ?? "",
+    );
+    await tx.$executeRawUnsafe(
+      `SELECT set_config('app.current_partner_id', $1, true)`,
+      ctx.partnerId ?? "",
     );
     return fn(tx);
   });

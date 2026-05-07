@@ -44,6 +44,8 @@ function bucketKey(caller: Caller | undefined): string | null {
   switch (caller.type) {
     case "master":
       return `master:${caller.keyId ?? "env"}`;
+    case "partner":
+      return `partner:${caller.partnerId}:${caller.keyId}`;
     case "tenant_key":
       return `tenant:${caller.keyId}`;
     case "user":

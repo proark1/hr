@@ -51,6 +51,10 @@ model Org {
   stripeCustomerId     String?     @map("stripe_customer_id")
   stripeSubscriptionId String?     @map("stripe_subscription_id")
   plan                 String?
+  // The Partner that provisioned this org, if any. NULL = root-master- or
+  // user-provisioned. Once set, never changes (orgs do not move between
+  // partners). Enforced cross-partner isolation via RLS.
+  partnerId            String?     @map("partner_id") @db.Uuid
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
   deletedAt            DateTime?   @map("deleted_at")
@@ -66,31 +70,81 @@ model Org {
   reviews         PerformanceReview[]
   companyProfile  CompanyProfile?
   settings        OrgSettings?
+  partner         Partner?         @relation(fields: [partnerId], references: [id])
 
+  @@index([partnerId])
   @@map("orgs")
 }
 
-// -- Auth (master + tenant-scoped keys; v1 ships master only) ----------------
+// -- Partners (multi-master integrators) -------------------------------------
+//
+// A Partner is an external SaaS integrator that provisions HR orgs on behalf
+// of their own customers (e.g. OneTap.ai). Each partner has one or more
+// partner-scoped api_keys and is isolated from other partners by RLS — they
+// can only see/touch the orgs they themselves provisioned. Created and
+// revoked exclusively by the operator (root master). The env-var
+// MASTER_API_KEY remains the bootstrap/break-glass credential and is the
+// only way to mint partners.
+
+enum PartnerStatus {
+  active
+  suspended
+}
+
+model Partner {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Human-readable label, e.g. "OneTap.ai". Not used for auth.
+  name        String
+  status      PartnerStatus @default(active)
+  // Free-form contact info shown in the operator dashboard. Never sent
+  // to the partner's own callers.
+  contactEmail String?      @map("contact_email")
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  suspendedAt DateTime?     @map("suspended_at")
+
+  apiKeys ApiKey[]
+  orgs    Org[]
+
+  @@map("partners")
+}
+
+// -- Auth (root master + partner + tenant-scoped keys) -----------------------
 
 enum ApiKeyScope {
+  // Reserved: db-backed root master keys (currently env-var only). Kept for
+  // forward-compat; no row should carry this scope today.
   master
+  // Partner-scoped key. Authenticates as the owning Partner; cross-tenant
+  // within that partner's orgs only.
+  partner
+  // Org-scoped tenant key. Locked to a single org_id.
   tenant
 }
 
 model ApiKey {
   id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   scope       ApiKeyScope
+  // Exactly one of (orgId, partnerId) is non-null at a time:
+  //   scope=tenant  → orgId set, partnerId null
+  //   scope=partner → partnerId set, orgId null
+  //   scope=master  → both null (reserved)
+  // Enforced by a CHECK constraint in the SQL migration.
   orgId       String?      @map("org_id") @db.Uuid
+  partnerId   String?      @map("partner_id") @db.Uuid
   name        String
-  prefix      String       @unique // e.g. "mh_live_abcd" (first 12 chars, for display + lookup)
+  prefix      String       @unique // e.g. "mh_live_abcd1234efgh" (first 24 chars, for display + lookup; see PREFIX_LEN in plugins/auth/shared.ts)
   hash        String       // sha256(secret), hex
   lastUsedAt  DateTime?    @map("last_used_at")
   createdAt   DateTime     @default(now()) @map("created_at")
   revokedAt   DateTime?    @map("revoked_at")
 
-  org Org? @relation(fields: [orgId], references: [id])
+  org     Org?     @relation(fields: [orgId], references: [id])
+  partner Partner? @relation(fields: [partnerId], references: [id])
 
   @@index([orgId])
+  @@index([partnerId])
   @@map("api_keys")
 }
 
